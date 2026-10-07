@@ -1,56 +1,52 @@
-# Welcome to your Expo app 👋
+# Adventure Golf (Expo / React Native)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Native port of the Figma Make prototype "Adventure Golf Mobile App", with all data stored
+locally in SQLite through Drizzle ORM. Works fully offline.
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Run
 
 ```bash
-npm run reset-project
+npm install            # also applies patches/ via patch-package
+npx expo start         # press i / a for a simulator, or scan with Expo Go / a dev build
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Web: `npm run export:web && npm run serve:web` then open http://localhost:8090.
+expo-sqlite's web build needs `Cross-Origin-Opener-Policy`/`Cross-Origin-Embedder-Policy` headers
+on the HTML page; `scripts/serve-web.mjs` adds them. (`expo start --web` currently only adds them
+to the JS bundles, not the HTML page, so the database can't open in the web dev server.)
 
-### Other setup steps
+## Structure
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```
+src/app/              Expo Router screens
+  _layout.tsx         fonts, providers, stack
+  index.tsx           Home (live round, start CTA, clubhouse, last game)
+  setup.tsx           New game: venue, course, per-hole par editor
+  players.tsx         Who's playing: select / add / remove players, start the round
+  game/[id].tsx       Live scoring: hole carousel, steppers, scoreboard, round options
+src/components/       Icon (prototype SVG paths), Logo, LeafDecoration, GolfBall, BottomNav,
+                      RoundMenu (bottom sheet + quit confirm), PlayerAvatar, WideCta, Eyebrow, Text
+src/db/
+  schema.ts           Drizzle schema + relations
+  client.ts           expo-sqlite + drizzle client (FKs on)
+  provider.tsx        open -> useMigrations -> first-run seed -> render
+  seed.ts             prototype data
+  queries.ts          all reads/writes
+  hooks.ts, events.ts useDbQuery: re-query on focus and after writes
+drizzle/              generated SQL migrations (bundled via babel-plugin-inline-import)
+patches/              expo-sqlite web fixes (see below)
+screenshots/          prototype-*.png vs app-*.png
+```
 
-## Learn more
+## Database
 
-To learn more about developing your project with Expo, look at the following resources:
+Tables: `venues`, `courses`, `holes`, `players` (one `is_owner`, enforced by a partial unique
+index), `games`, `game_players` (turn order), `scores` (unique per game/player/hole), `app_meta`.
+All FKs cascade on delete. Change `src/db/schema.ts`, then `npm run db:generate`.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## expo-sqlite web patch
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+`patches/expo-sqlite+57.0.4.patch` fixes two bugs in expo-sqlite 57.0.4's web worker channel:
+the result length was written with `Uint8Array.set(Uint32Array)` (truncating it to one byte, so
+any result over 255 bytes failed to parse), and the sync-call timeout was a 1M-iteration
+`Atomics.pause()` spin (a few ms), which timed out ordinary writes. iOS/Android are unaffected.

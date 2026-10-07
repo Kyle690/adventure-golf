@@ -7,7 +7,15 @@ import { fonts } from '@/theme';
 import type { Player } from '@/db/schema';
 
 /** Coloured initial bubble (prototype .player-avatar / .player-avatar.small). */
-export function PlayerAvatar({ player, index, size = 39 }: { player: Player; index: number; size?: number }) {
+export function PlayerAvatar({
+  player,
+  index,
+  size = 39,
+}: {
+  player: Pick<Player, 'name' | 'avatar'>;
+  index: number;
+  size?: number;
+}) {
   return (
     <View
       style={[
@@ -15,7 +23,7 @@ export function PlayerAvatar({ player, index, size = 39 }: { player: Player; ind
         { width: size, height: size, borderRadius: size / 2, backgroundColor: playerColor(player, index) },
       ]}
     >
-      <Text style={[styles.letter, { fontSize: size >= 39 ? 16 : 13 }]}>{player.name.slice(0, 1).toUpperCase()}</Text>
+      <Text style={[styles.letter, { fontSize: size > 39 ? Math.round(size * 0.41) : size >= 39 ? 16 : 13 }]}>{player.name.slice(0, 1).toUpperCase()}</Text>
     </View>
   );
 }

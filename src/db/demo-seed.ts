@@ -4,11 +4,9 @@ import { PLAYER_COLORS } from '@/theme';
 import type { Database } from './client';
 import { appMeta, courses, gamePlayers, games, holes, players, scores, venues } from './schema';
 
-const SEED_KEY = 'seed_version';
-export const SEED_VERSION = '1';
 
 /**
- * Data from the Figma Make prototype (src/App.tsx):
+ * Demo data from the Figma Make prototype (src/App.tsx):
  * - venue "Sandton" (ADVENTURE GOLF), "Johannesburg, Gauteng"
  * - course "The Tropical Trail", 9 holes, pars [3,3,4,3,2,4,3,3,4] (par 29)
  * - players "You" (scorekeeper = owner), "Alex", "Jordan" with the prototype palette
@@ -38,10 +36,14 @@ export const SEED = {
   ],
 };
 
-/** Idempotent first-run seed; everything goes in one transaction. */
-export async function seedDatabase(db: Database) {
-  const existing = db.select().from(appMeta).where(eq(appMeta.key, SEED_KEY)).get();
-  if (existing?.value === SEED_VERSION) return;
+/**
+ * DEV ONLY demo data (the prototype's Sandton / Tropical Trail / Alex & Jordan / demo games).
+ * Real installs start empty and go through onboarding. Enabled with EXPO_PUBLIC_DEMO_SEED=1 in a
+ * dev build; skipped if an owner already exists, so it never mixes with real data.
+ */
+export async function seedDemoData(db: Database) {
+  const owner = db.select().from(players).where(eq(players.isOwner, true)).get();
+  if (owner) return;
 
   const now = new Date();
   const liveStartedAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 14, 32);
@@ -80,8 +82,8 @@ export async function seedDatabase(db: Database) {
     addGame({ courseId: course.id, status: 'in_progress', startedAt: liveStartedAt }, SEED.liveGameScores);
 
     tx.insert(appMeta)
-      .values({ key: SEED_KEY, value: SEED_VERSION })
-      .onConflictDoUpdate({ target: appMeta.key, set: { value: SEED_VERSION } })
+      .values({ key: 'onboarding', value: 'complete' })
+      .onConflictDoUpdate({ target: appMeta.key, set: { value: 'complete' } })
       .run();
   });
 }

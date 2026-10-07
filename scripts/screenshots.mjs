@@ -1,6 +1,7 @@
 // Screenshot harness used to compare the Figma Make prototype (vite on :5174) with the Expo web
 // export (node scripts/serve-web.mjs on :8090). Needs playwright + Chrome: run it from a folder
 // where playwright is installed, e.g. node scripts/screenshots.mjs [proto|app|both].
+// The app flow expects the demo data: export with `EXPO_PUBLIC_DEMO_SEED=1 npx expo export -p web --dev`.
 import { chromium } from 'playwright';
 
 const OUT = '/workspace/adventure-golf/screenshots';

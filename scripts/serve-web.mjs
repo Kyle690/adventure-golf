@@ -1,10 +1,10 @@
 // Serves the `npx expo export --platform web` output (dist/) with the COOP/COEP headers that
-// expo-sqlite's web build needs for SharedArrayBuffer. Usage: node scripts/serve-web.mjs [port]
+// expo-sqlite's web build needs for SharedArrayBuffer. Usage: node scripts/serve-web.mjs [port] [dir]
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize } from 'node:path';
 
-const root = join(import.meta.dirname, '..', 'dist');
+const root = process.argv[3] ?? join(import.meta.dirname, '..', 'dist');
 const port = Number(process.argv[2] ?? 8090);
 const types = {
   '.html': 'text/html; charset=utf-8',

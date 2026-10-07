@@ -11,6 +11,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { DatabaseProvider } from '@/db/provider';
@@ -37,6 +38,7 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
       <StatusBar style="light" />
       <View style={styles.shell}>
@@ -49,12 +51,17 @@ export default function RootLayout() {
                   animation: 'fade',
                   contentStyle: { backgroundColor: colors.cream },
                 }}
-              />
+              >
+                {/* First-run flow: no swipe-back into it / out of it. */}
+                <Stack.Screen name="onboarding/index" options={{ gestureEnabled: false }} />
+                <Stack.Screen name="onboarding/complete" options={{ gestureEnabled: false }} />
+              </Stack>
             </RoundDraftProvider>
           </DatabaseProvider>
         </View>
       </View>
     </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

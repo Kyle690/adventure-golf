@@ -4,9 +4,15 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import migrations from '../../drizzle/migrations';
 import { type Database, initDatabase } from './client';
-import { seedDatabase } from './seed';
+import { seedDemoData } from './demo-seed';
 
-/** Opens SQLite, applies bundled Drizzle migrations, seeds on first run, then renders the app. */
+/** Dev-only: `EXPO_PUBLIC_DEMO_SEED=1 npx expo start` loads the prototype's demo data on a fresh DB. */
+const DEMO_SEED = __DEV__ && process.env.EXPO_PUBLIC_DEMO_SEED === '1';
+
+/**
+ * Opens SQLite and applies bundled Drizzle migrations, then renders the app. A fresh install
+ * starts empty; Home redirects to onboarding until the owner has been set up.
+ */
 export function DatabaseProvider({ children }: PropsWithChildren) {
   const [database, setDatabase] = useState<Database | null>(null);
   const [openError, setOpenError] = useState<Error | null>(null);
@@ -29,7 +35,7 @@ function Migrated({ database, children }: PropsWithChildren<{ database: Database
 
   useEffect(() => {
     if (!success) return;
-    seedDatabase(database)
+    (DEMO_SEED ? seedDemoData(database) : Promise.resolve())
       .then(() => setSeeded(true))
       .catch((e: unknown) => setSeedError(e instanceof Error ? e : new Error(String(e))));
   }, [success, database]);

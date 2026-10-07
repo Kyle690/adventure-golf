@@ -13,7 +13,9 @@ export type IconName =
   | 'trash'
   | 'check'
   | 'close'
-  | 'trophy';
+  | 'trophy'
+  | 'back'
+  | 'image';
 
 type IconProps = {
   name: IconName;
@@ -37,6 +39,8 @@ export function Icon({ name, size = 22, strokeWidth = 1.8, color = '#083d40' }: 
     plus: p('M12 5v14M5 12h14'),
     arrow: p('M5 12h14M13 6l6 6-6 6'),
     chevron: p('m9 18 6-6-6-6'),
+    back: p('m15 18-6-6 6-6'),
+    image: [p('M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z'), p('m21 15-5-5L5 19'), <Circle key="c" cx={8.5} cy={9.5} r={1.5} />],
     flag: p('M6 21V4M6 5c4-3 8 3 12 0v9c-4 3-8-3-12 0'),
     edit: [p('M12 20h9'), p('M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z')],
     trash: p('M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v6M14 11v6'),

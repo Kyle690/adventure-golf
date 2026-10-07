@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/Text';
@@ -12,25 +12,38 @@ import { Icon } from '@/components/Icon';
 import { LeafDecoration } from '@/components/LeafDecoration';
 import { Logo } from '@/components/Logo';
 import { useDbQuery } from '@/db/hooks';
-import { countVenues, getLastCompletedGame, getLiveGame, listPlayers, type GameDetail } from '@/db/queries';
+import {
+  countVenues,
+  getLastCompletedGame,
+  getLiveGame,
+  listPlayers,
+  needsOnboarding,
+  type GameDetail,
+} from '@/db/queries';
 import { bestTotal, currentHoleIndex } from '@/lib/game';
-import { playerColor } from '@/lib/players';
+import { initials, playerColor } from '@/lib/players';
 import { formatDayTime } from '@/lib/time';
 import { BRAND, colors, fonts } from '@/theme';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { data } = useDbQuery(async () => {
-    const [liveGame, lastGame, venueCount, players] = await Promise.all([
+    const [onboarding, liveGame, lastGame, venueCount, players] = await Promise.all([
+      needsOnboarding(),
       getLiveGame(),
       getLastCompletedGame(),
       countVenues(),
       listPlayers(),
     ]);
-    return { liveGame, lastGame, venueCount, players };
+    return { onboarding, liveGame, lastGame, venueCount, players };
   });
 
   const topPad = Math.max(22, insets.top);
+  const owner = data?.players.find((p) => p.isOwner);
+
+  // First run (no owner yet, or onboarding left half-way): go through onboarding before Home.
+  if (!data) return <View style={styles.screen} />;
+  if (data.onboarding) return <Redirect href="/onboarding" />;
 
   return (
     <View style={styles.screen}>
@@ -46,13 +59,13 @@ export default function HomeScreen() {
           <LeafDecoration />
           <View style={styles.heroTop}>
             <Logo />
-            {/* The prototype hard-codes the profile initials "MS"; it opens the Players screen. */}
+            {/* Prototype hard-codes "MS"; we use the owner's initials. Opens the Players screen. */}
             <Pressable
               accessibilityLabel="Open profile"
               onPress={() => router.dismissTo('/players')}
               style={styles.avatar}
             >
-              <Text style={styles.avatarText}>MS</Text>
+              <Text style={styles.avatarText}>{initials(owner?.name) || '?'}</Text>
             </Pressable>
           </View>
           <View style={styles.heroCopy}>
@@ -64,7 +77,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.content}>
-          {data?.liveGame ? <LiveGameCard game={data.liveGame} /> : null}
+          {data.liveGame ? <LiveGameCard game={data.liveGame} /> : null}
 
           <View style={styles.primaryCard}>
             <LinearGradient
@@ -98,7 +111,7 @@ export default function HomeScreen() {
               <View style={styles.quickRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.quickTitle}>Venues</Text>
-                  <Text style={styles.quickSub}>{data?.venueCount ?? 0} saved</Text>
+                  <Text style={styles.quickSub}>{data.venueCount} saved</Text>
                 </View>
                 <Icon name="chevron" size={18} />
               </View>
@@ -110,14 +123,14 @@ export default function HomeScreen() {
               <View style={styles.quickRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.quickTitle}>Players</Text>
-                  <Text style={styles.quickSub}>{data?.players.length ?? 0} in your crew</Text>
+                  <Text style={styles.quickSub}>{data.players.length} in your crew</Text>
                 </View>
                 <Icon name="chevron" size={18} />
               </View>
             </Pressable>
           </View>
 
-          {data?.lastGame ? <LastGameCard game={data.lastGame} /> : null}
+          {data.lastGame ? <LastGameCard game={data.lastGame} /> : <NoGamesCard />}
         </View>
       </ScrollView>
       <BottomNav active="home" />
@@ -173,6 +186,26 @@ function LiveGameCard({ game }: { game: GameDetail }) {
           <Text style={styles.resumeText}>Resume game</Text>
           <Icon name="arrow" size={17} color="#fff" />
         </Pressable>
+      </View>
+    </View>
+  );
+}
+
+/** Empty state for the "Last game" slot until a round has been finished. */
+function NoGamesCard() {
+  return (
+    <View style={styles.recentCard}>
+      <View style={styles.recentIcon}>
+        <Icon name="flag" color="#348d45" />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Eyebrow style={{ color: '#8a9790' }}>LAST GAME</Eyebrow>
+        <Text style={styles.recentTitle}>No finished rounds yet</Text>
+        <Text style={styles.recentMeta}>Finish a round and your best score shows up here.</Text>
+      </View>
+      <View style={styles.winningScore}>
+        <Text style={styles.winningNumber}>–</Text>
+        <Text style={styles.winningLabel}>BEST</Text>
       </View>
     </View>
   );

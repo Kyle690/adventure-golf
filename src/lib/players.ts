@@ -17,3 +17,16 @@ export function nextPlayerColor(existing: Pick<Player, 'avatar'>[]): string {
   const used = new Set(existing.map((p) => p.avatar));
   return PLAYER_COLORS.find((c) => !used.has(c)) ?? PLAYER_COLORS[existing.length % PLAYER_COLORS.length];
 }
+
+/** "Kyle Winter" -> "KW", "Kyle" -> "K" (home profile button). */
+export function initials(name: string | null | undefined): string {
+  const words = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '';
+  const first = words[0][0] ?? '';
+  const last = words.length > 1 ? (words[words.length - 1][0] ?? '') : '';
+  return (first + last).toUpperCase();
+}
+
+export function firstName(name: string | null | undefined): string {
+  return (name ?? '').trim().split(/\s+/)[0] ?? '';
+}

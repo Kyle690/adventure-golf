@@ -1,18 +1,22 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CelebrationOverlay } from '@/components/celebration/Celebration';
 import { Eyebrow } from '@/components/Eyebrow';
 import { Icon } from '@/components/Icon';
 import { LeafDecoration } from '@/components/LeafDecoration';
 import { Logo } from '@/components/Logo';
 import { PlayerAvatar } from '@/components/PlayerAvatar';
+import { ShareScoreCardButton, useScoreCardShare } from '@/components/ShareScoreCard';
 import { Text } from '@/components/Text';
+import { WideCta } from '@/components/WideCta';
 import { useDbQuery } from '@/db/hooks';
-import { completeGame, getGame } from '@/db/queries';
+import { completeGame, getGame, type GameDetail } from '@/db/queries';
 import { gameResults, scoreGrid, totalPar } from '@/lib/game';
 import { finishToHome } from '@/lib/navigation';
-import { winnerHeadline } from '@/lib/results';
+import { roundHeadline } from '@/lib/scorecard';
 import { formatVsPar } from '@/lib/stats';
 import { formatDayTime } from '@/lib/time';
 import { colors, fonts } from '@/theme';
@@ -22,12 +26,17 @@ import { colors, fonts } from '@/theme';
  * - a just-finished live round ("Finish round"): results to check, then "Confirm result" marks it
  *   completed and resets to the Home tab; "Keep editing scores" goes back to scoring;
  * - a completed round (History, venue, player, Home last game): read-only review.
- * Both show the winner, standings and the hole-by-hole score sheet from the game's snapshot.
+ * Both show the winner, standings and the hole-by-hole score sheet from the game's snapshot, with
+ * a prominent "Share score card" (image via the share sheet). Confirming saves the round as
+ * completed straight away, then plays the celebration overlay; leaving it resets to Home.
  */
 export default function GameCompleteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const { data: game } = useDbQuery(() => getGame(Number(id)).then((g) => g ?? null), id);
+  const scoreCard = useScoreCardShare(game);
+  // Only set by "Confirm result" in this session, so reviewing a past round never celebrates.
+  const [celebrating, setCelebrating] = useState(false);
 
   if (game === undefined) {
     return (
@@ -60,12 +69,17 @@ export default function GameCompleteScreen() {
   };
   const confirm = () => {
     completeGame(game.id);
+    setCelebrating(true);
+  };
+  const goHome = () => {
+    setCelebrating(false);
     finishToHome();
   };
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
+      {scoreCard.capture}
+      <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
         <View style={[styles.header, { paddingTop: Math.max(16, insets.top) }]}>
           <LeafDecoration />
           <View style={styles.topbar}>
@@ -73,7 +87,9 @@ export default function GameCompleteScreen() {
               <Icon name="back" color="#fff" />
             </Pressable>
             <Logo compact />
-            <View style={{ width: 38 }} />
+            <Pressable accessibilityLabel="Share" onPress={scoreCard.share} style={styles.roundButton}>
+              <Icon name="share" size={19} color="#fff" />
+            </Pressable>
           </View>
           <Eyebrow style={{ color: '#90ce5e', marginBottom: 7 }}>{live ? 'CONFIRM RESULT' : 'FINAL SCORECARD'}</Eyebrow>
           <Text style={styles.title}>{game.courseName}</Text>
@@ -100,13 +116,17 @@ export default function GameCompleteScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Eyebrow style={{ color: '#b9861a', marginBottom: 4 }}>{live ? 'FINAL RESULT' : 'WINNER'}</Eyebrow>
-              <Text style={styles.winnerTitle}>{winnerHeadline(results)}</Text>
+              <Text style={styles.winnerTitle}>{roundHeadline(game)}</Text>
               {results[0]?.holesScored ? (
                 <Text style={styles.winnerSub}>
                   {results[0].total} strokes · {formatVsPar(results[0].vsPar)} vs par
                 </Text>
               ) : null}
             </View>
+          </View>
+
+          <View style={{ marginTop: 12 }}>
+            <ShareScoreCardButton onPress={scoreCard.share} busy={scoreCard.busy} notice={scoreCard.notice} />
           </View>
 
           <Text style={styles.section}>Standings</Text>
@@ -227,12 +247,64 @@ export default function GameCompleteScreen() {
 
         </View>
       </ScrollView>
+      {celebrating ? <RoundCelebration game={game} onDone={goHome} /> : null}
     </View>
+  );
+}
+
+/** The onboarding-style celebration, played once when a round is confirmed. */
+function RoundCelebration({ game, onDone }: { game: GameDetail; onDone: () => void }) {
+  const scoreCard = useScoreCardShare(game);
+  const players = game.gamePlayers.map((gp) => gp.player);
+  const results = gameResults(game);
+  const solo = players.length === 1;
+  const leader = results[0];
+  return (
+    <CelebrationOverlay
+      visible
+      onRequestClose={onDone}
+      behind={scoreCard.capture}
+      eyebrow="ROUND COMPLETE"
+      title={roundHeadline(game)}
+      subtitle={
+        solo && leader?.holesScored
+          ? `${leader.total} strokes (${formatVsPar(leader.vsPar)} vs par) at ${game.courseName}, ${game.venueName}. Saved to your history.`
+          : `${game.courseName} at ${game.venueName} is in the books. Saved to your history.`
+      }
+      card={
+        <View style={styles.celebrationCard}>
+          <Eyebrow style={{ color: colors.green, fontSize: 8, marginBottom: 4 }}>FINAL STANDINGS</Eyebrow>
+          {results.map((r) => {
+            const index = players.findIndex((p) => p.id === r.playerId);
+            return (
+              <View key={r.playerId} style={[styles.celebrationRow, r.isWinner && styles.standingWinner]}>
+                <Text style={styles.rank}>{r.rank ?? '–'}</Text>
+                <PlayerAvatar player={players[index]} index={index} size={30} />
+                <Text style={[styles.standingName, { flex: 1 }]} numberOfLines={1}>
+                  {r.name}
+                </Text>
+                {r.isWinner && !solo ? <Icon name="trophy" size={17} color="#c99a12" /> : null}
+                <Text style={styles.celebrationVs}>{r.holesScored ? formatVsPar(r.vsPar) : ''}</Text>
+                <Text style={styles.celebrationTotal}>{r.holesScored ? r.total : '–'}</Text>
+              </View>
+            );
+          })}
+        </View>
+      }
+      actions={
+        <View style={{ marginTop: 22 }}>
+          <ShareScoreCardButton tone="light" onPress={scoreCard.share} busy={scoreCard.busy} notice={scoreCard.notice} />
+          <WideCta label="Back to Home" onPress={onDone} />
+        </View>
+      }
+    />
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
+  // Opaque, so the score card being captured for sharing (rendered first) stays hidden.
+  scroll: { flex: 1, backgroundColor: colors.cream },
   center: { alignItems: 'center', justifyContent: 'center' },
   missing: { color: colors.ink, fontFamily: fonts.display, fontSize: 18 },
   header: {
@@ -350,5 +422,18 @@ const styles = StyleSheet.create({
   rank: { width: 14, textAlign: 'center', color: '#8a9790', fontSize: 11, fontFamily: fonts.bodyBold },
   standingName: { color: colors.ink, fontFamily: fonts.displayBold, fontSize: 14 },
   standingSub: { color: '#849189', fontSize: 9, fontFamily: fonts.body },
+  celebrationCard: { gap: 6, padding: 15 },
+  celebrationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    paddingVertical: 7,
+    paddingHorizontal: 9,
+    borderWidth: 1,
+    borderColor: '#e6ebe3',
+    borderRadius: 12,
+  },
+  celebrationVs: { color: colors.green, fontSize: 10, fontFamily: fonts.bodyBold },
+  celebrationTotal: { minWidth: 28, textAlign: 'right', color: colors.ink, fontFamily: fonts.displayBold, fontSize: 18 },
   standingTotal: { minWidth: 30, textAlign: 'right', color: colors.ink, fontFamily: fonts.displayBold, fontSize: 20 },
 });

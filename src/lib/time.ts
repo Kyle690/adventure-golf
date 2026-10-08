@@ -34,3 +34,10 @@ export function timeAgo(date: Date, now = new Date()) {
   const years = Math.floor(days / 365);
   return years <= 1 ? '1 year ago' : `${years} years ago`;
 }
+
+/** "Thu 8 Oct 2026" (score card date). */
+export function formatLongDate(date: Date) {
+  const weekday = date.toLocaleString('en-GB', { weekday: 'short' });
+  const month = date.toLocaleString('en-GB', { month: 'short' });
+  return `${weekday} ${date.getDate()} ${month} ${date.getFullYear()}`;
+}

@@ -8,11 +8,11 @@
     "scheme": "adventuregolf",
     "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/images/icon.png"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#063236",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -37,8 +37,9 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#063236",
-          "image": "./assets/images/adventure-golf-logo.png",
-          "imageWidth": 180
+          "image": "./assets/images/splash-icon.png",
+          "resizeMode": "contain",
+          "imageWidth": 220
         }
       ],
       "expo-sqlite",
@@ -50,7 +51,8 @@
           "cameraPermission": false,
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

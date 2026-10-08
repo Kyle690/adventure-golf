@@ -29,7 +29,7 @@ src/app/              Expo Router screens (route groups in parentheses don't app
   (onboarding)/       own Stack (no swipe back); Home redirects here while no owner exists or
                       onboarding is unfinished
     onboarding/index.tsx     first-run carousel: owner -> venue -> course -> crew (pager)
-    onboarding/complete.tsx  celebration + recap of venue/course/crew -> Home (replace)
+    onboarding/complete.tsx  <Celebration> + recap of venue/course/crew -> Home (replace)
   (tabs)/_layout.tsx  bottom Tabs navigator; the floating BottomNav is its custom tabBar
     index.tsx         Home tab (/): live round, start CTA, clubhouse shortcuts, last game
     venues/           Venues tab Stack (list underneath any deep-linked venue screen)
@@ -53,21 +53,30 @@ src/app/              Expo Router screens (route groups in parentheses don't app
                       the course list loads for the chosen venue; ?venueId= preselects a venue
     players.tsx       /game/players?courseId=: Who's playing: tap to select, add a player (no
                       delete), start the round (replaces the picker with the game screen)
-    [id]/index.tsx    /game/:id: live scoring (hole carousel, steppers, scoreboard, round options);
-                      "Finish round" pushes the game complete screen; finished games redirect there
+    [id]/index.tsx    /game/:id: live scoring: hole strip (jump to any hole, scored/part-scored
+                      marks), hole carousel with big "Hole n" title, previous/next, steppers,
+                      scoreboard, Edit players sheet, round options; "Finish round" pushes the
+                      game complete screen; finished games redirect there
     [id]/complete.tsx /game/:id/complete: one screen for both modes. Live round: CONFIRM RESULT
                       (winner, standings, missing-hole warning, Confirm result / Keep editing,
-                      score sheet). Finished round: read-only FINAL SCORECARD
+                      score sheet). Finished round: read-only FINAL SCORECARD. Both: "Share
+                      score card". Confirm result plays the round-complete celebration overlay
 src/components/       Icon (prototype SVG paths), Logo, LeafDecoration, GolfBall, BottomNav (tab
                       bar), RoundMenu (bottom sheet + quit confirm), PlayerAvatar, WideCta, Eyebrow,
                       Text, ParEditor + CourseForm (course create/edit and onboarding),
                       ConfirmDialog, AddPlayerForm (Players tab + game player picker),
-                      GameCard (Live badge -> continue / finished -> game complete)
-  onboarding/         StepPage, StepDots, Form fields, Confetti, BouncingBall, steps/*
+                      GameCard (Live badge -> continue / finished -> game complete),
+                      ScoreCardImage + ShareScoreCard (capture + share the score card)
+  celebration/        Celebration / CelebrationOverlay (onboarding complete + round complete),
+                      Confetti, BouncingBall
+  game/               HoleStrip, EditPlayersSheet
+  onboarding/         StepPage, StepDots, Form fields, steps/*
 src/lib/handicap.ts   calculated handicap (pure functions) + handicap.test.ts (npm test)
 src/lib/stats.ts      per-player stats (rounds, wins, best, avg/hole, holes-in-one, recent)
 src/lib/venue-stats.ts  venue/course summaries + sorting (pure, venue-stats.test.ts)
 src/lib/results.ts    game ranking / winner headline (pure, results.test.ts)
+src/lib/scorecard.ts  score card text / file name / headline; share-image.ts: native share sheet
+                      (expo-sharing, RN Share fallback), web: Web Share API with the file or download
 src/lib/navigation.ts leave the game stack (useExitGameFlow) / after Confirm result (finishToHome)
 src/lib/images.ts     image picker -> copy into documentDirectory/images (data: URI on web)
 src/db/
@@ -78,6 +87,8 @@ src/db/
   demo-seed.ts        prototype demo data, only with EXPO_PUBLIC_DEMO_SEED=1 in __DEV__
   queries.ts          all reads/writes
   snapshots.test.ts   migration-upgrade + "course edits don't change past games" tests
+  game-players.test.ts  adding/removing players during a round
+  test-db.ts          sql.js test harness shared by the *.test.ts files
   hooks.ts, events.ts useDbQuery: re-query on focus and after writes
 drizzle/              generated SQL migrations (bundled via babel-plugin-inline-import)
 patches/              expo-sqlite web fixes (see below)
@@ -86,9 +97,13 @@ scripts/              serve-web.mjs, screenshots.mjs (prototype vs app, needs a 
                       players-screenshots.mjs (player edit/delete on a demo build + checks),
                       venues-screenshots.mjs (venues, course edit/create, game complete, picker),
                       nav-screenshots.mjs (tabs, game stack, exits/resets, deep links + checks),
+                      polish-screenshots.mjs (hole switcher, Edit players, celebration, share,
+                      new logo + checks),
                       upgrade-check.mjs (previous build -> this build on the same web DB)
 screenshots/          prototype-*.png vs app-*.png, onboarding-*.png, players-*.png, venues-*.png,
-                      nav-*.png
+                      nav-*.png, polish-*.png
+assets/images/        Summit Pin brand: logo.png (light-on-ink wordmark, 211x40), logo-dark.png
+                      (light backgrounds; unused today), icon / adaptive icon / favicon / splash
 ```
 
 ## Database
@@ -179,7 +194,19 @@ Root Stack
   finished rounds open the game complete screen read-only.
 - Finishing: the last hole's "Finish round" opens the game complete screen in confirm mode
   (ranked totals, vs par, winner, missing-hole warning, score sheet). "Confirm result" sets
-  status=completed and completedAt=now (only for a live round); "Keep editing scores" goes back.
+  status=completed and completedAt=now (only for a live round), then plays the round-complete
+  celebration (same animation as onboarding complete); "Back to Home" (or Android back) resets to
+  Home. "Keep editing scores" goes back. Reviewing a past round never shows the celebration.
+- Share score card (complete screen, both modes, and the celebration): `ScoreCardImage` (course,
+  venue, date, winner, hole-by-hole strokes, totals, vs par) is rendered underneath the screen
+  only while sharing, captured to PNG with react-native-view-shot and shared with expo-sharing
+  (native share sheet). Web: Web Share API with the image when supported, otherwise the PNG is
+  downloaded. If the image can't be made the score card is shared as text.
+- Edit players (game screen scoreboard, or Round options): remove a player (if they have scores
+  a confirmation says how many, and only their scores in this round are deleted), add a saved
+  player or create one inline. New players go last in the turn order; positions are renumbered
+  0..n-1 after a removal; a round keeps at least one player and at most 6
+  (`addPlayerToGame` / `removePlayerFromGame`, live rounds only).
 
 Not done yet: editing/deleting venues, deleting courses.
 

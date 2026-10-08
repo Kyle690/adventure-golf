@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, gt, inArray, max, ne, notExists, sql } from 'drizzle-orm';
 
 import { summarizeVenue } from '@/lib/venue-stats';
+import { MAX_PLAYERS } from '@/theme';
 
 import { db } from './database';
 import { notifyDbChanged } from './events';
@@ -274,6 +275,73 @@ export function setScore(gameId: number, playerId: number, gameHoleId: number, s
       .run();
   }
   notifyDbChanged();
+}
+
+/** The game, if it is still being played (players can only change on a live round). */
+function liveGameOrThrow(tx: Tx, gameId: number) {
+  const game = tx.select().from(games).where(eq(games.id, gameId)).get();
+  if (!game) throw new Error('Game not found');
+  if (game.status !== 'in_progress') throw new Error('Players can only change during a live round');
+  return game;
+}
+
+/**
+ * "Edit players" during a round: adds a saved player at the end of the turn order. They start with
+ * no scores (holes already played show "–" until filled in). No-op if they are already playing.
+ */
+export function addPlayerToGame(gameId: number, playerId: number) {
+  db.transaction((tx) => {
+    liveGameOrThrow(tx, gameId);
+    const current = tx.select().from(gamePlayers).where(eq(gamePlayers.gameId, gameId)).all();
+    if (current.some((gp) => gp.playerId === playerId)) return;
+    if (current.length >= MAX_PLAYERS) throw new Error(`A round has at most ${MAX_PLAYERS} players`);
+    const position = current.reduce((last, gp) => Math.max(last, gp.position), -1) + 1;
+    tx.insert(gamePlayers).values({ gameId, playerId, position }).run();
+  });
+  notifyDbChanged();
+}
+
+/**
+ * "Edit players" during a round: takes a player out of the game and deletes their scores for THIS
+ * game only (other games and the saved player are untouched). The remaining players keep their
+ * order with positions renumbered 0..n-1. A round always keeps at least one player.
+ * Returns how many scores were deleted.
+ */
+export function removePlayerFromGame(gameId: number, playerId: number) {
+  const deleted = db.transaction((tx) => {
+    liveGameOrThrow(tx, gameId);
+    const current = tx
+      .select()
+      .from(gamePlayers)
+      .where(eq(gamePlayers.gameId, gameId))
+      .orderBy(asc(gamePlayers.position))
+      .all();
+    if (!current.some((gp) => gp.playerId === playerId)) return 0;
+    if (current.length <= 1) throw new Error('A round needs at least one player');
+    const removedScores = tx
+      .delete(scores)
+      .where(and(eq(scores.gameId, gameId), eq(scores.playerId, playerId)))
+      .returning({ id: scores.id })
+      .all().length;
+    tx.delete(gamePlayers)
+      .where(and(eq(gamePlayers.gameId, gameId), eq(gamePlayers.playerId, playerId)))
+      .run();
+    // Close the gap in ascending order, so each move goes into a slot that is already free
+    // (positions are unique per game).
+    current
+      .filter((gp) => gp.playerId !== playerId)
+      .forEach((gp, position) => {
+        if (gp.position !== position) {
+          tx.update(gamePlayers)
+            .set({ position })
+            .where(and(eq(gamePlayers.gameId, gameId), eq(gamePlayers.playerId, gp.playerId)))
+            .run();
+        }
+      });
+    return removedScores;
+  });
+  notifyDbChanged();
+  return deleted;
 }
 
 /** Confirmed result: only a live round can be completed (status=completed, completedAt=now). */

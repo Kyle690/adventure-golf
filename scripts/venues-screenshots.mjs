@@ -153,6 +153,9 @@ await shot('game-finish-confirm', 600);
 check(await visible('You win!'), 'confirmation shows the winner');
 
 await page.getByText('Confirm result', { exact: true }).last().click();
+// Confirming plays the round-complete celebration; leaving it resets to Home.
+await page.getByText('ROUND COMPLETE', { exact: true }).last().waitFor();
+await page.getByText('Back to Home', { exact: true }).last().click();
 await page.waitForURL((u) => new globalThis.URL(u).pathname === '/');
 await settle(1500);
 check(!(await page.getByText('Resume game').isVisible()), 'home no longer shows a live round');

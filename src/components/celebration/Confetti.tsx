@@ -65,7 +65,7 @@ function Piece({ index, width, height }: { index: number; width: number; height:
   );
 }
 
-/** Falling confetti overlay for the onboarding complete screen (skipped with Reduce Motion). */
+/** Falling confetti for the celebration screens: onboarding complete and round complete (skipped with Reduce Motion). */
 export function Confetti() {
   const { width, height } = useWindowDimensions();
   const reduceMotion = useReducedMotion();

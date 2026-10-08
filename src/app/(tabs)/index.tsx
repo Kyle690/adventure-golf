@@ -6,7 +6,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BottomNav, NAV_CLEARANCE } from '@/components/BottomNav';
+import { NAV_CLEARANCE } from '@/components/BottomNav';
 import { Eyebrow } from '@/components/Eyebrow';
 import { GolfBall } from '@/components/GolfBall';
 import { Icon } from '@/components/Icon';
@@ -63,7 +63,7 @@ export default function HomeScreen() {
             {/* Prototype hard-codes "MS"; we use the owner's initials. Opens the Players tab (crew). */}
             <Pressable
               accessibilityLabel="Open profile"
-              onPress={() => router.dismissTo('/crew')}
+              onPress={() => router.navigate('/players')}
               style={styles.avatar}
             >
               <Text style={styles.avatarText}>{initials(owner?.name) || '?'}</Text>
@@ -91,7 +91,7 @@ export default function HomeScreen() {
             <Eyebrow style={{ color: '#b7e783' }}>YOUR NEXT ROUND</Eyebrow>
             <Text style={styles.primaryTitle}>Let&apos;s hit the course</Text>
             <Text style={styles.primaryCopy}>Pick a venue, invite your crew and keep every score in one place.</Text>
-            <Pressable style={styles.ctaButton} onPress={() => router.push('/setup')}>
+            <Pressable style={styles.ctaButton} onPress={() => router.push('/game/new')}>
               <Text style={styles.ctaText}>Start a new game</Text>
               <View style={styles.ctaIcon}>
                 <Icon name="arrow" size={20} color="#fff" />
@@ -105,7 +105,7 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.quickGrid}>
-            <Pressable style={[styles.quickCard, { backgroundColor: '#ffe9e4' }]} onPress={() => router.dismissTo('/venues')}>
+            <Pressable style={[styles.quickCard, { backgroundColor: '#ffe9e4' }]} onPress={() => router.navigate('/venues')}>
               <View style={styles.quickIcon}>
                 <Icon name="pin" color="#fff" />
               </View>
@@ -117,7 +117,7 @@ export default function HomeScreen() {
                 <Icon name="chevron" size={18} />
               </View>
             </Pressable>
-            <Pressable style={[styles.quickCard, { backgroundColor: '#fff3c8' }]} onPress={() => router.dismissTo('/crew')}>
+            <Pressable style={[styles.quickCard, { backgroundColor: '#fff3c8' }]} onPress={() => router.navigate('/players')}>
               <View style={[styles.quickIcon, { backgroundColor: colors.yellow }]}>
                 <Icon name="users" />
               </View>
@@ -134,7 +134,6 @@ export default function HomeScreen() {
           {data.lastGame ? <LastGameCard game={data.lastGame} /> : <NoGamesCard />}
         </View>
       </ScrollView>
-      <BottomNav active="home" />
     </View>
   );
 }
@@ -221,8 +220,8 @@ function LastGameCard({ game }: { game: GameDetail }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Last game: ${game.courseName}. Open scorecard`}
-      onPress={() => router.push(`/scorecard/${game.id}`)}
+      accessibilityLabel={`Last game: ${game.courseName}. Open result`}
+      onPress={() => router.push(`/game/${game.id}/complete`)}
       style={({ pressed }) => [styles.recentCard, pressed && { transform: [{ scale: 0.99 }] }]}
     >
       <View style={styles.recentIcon}>

@@ -44,7 +44,6 @@ export function rankResults(pars: number[], players: ResultInput[]): PlayerResul
     .sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity) || a.order - b.order);
 }
 
-/** "Kyle wins" / "Kyle & Alex tie" / "No scores yet". */
 /** "Alex wins" / "You win": the demo owner (and anyone named "You") gets second-person grammar. */
 export function withVerb(name: string, verb: string): string {
   return name.trim().toLowerCase() === 'you' ? `${name} ${verb}` : `${name} ${verb}s`;

@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BottomNav, NAV_CLEARANCE } from '@/components/BottomNav';
+import { NAV_CLEARANCE } from '@/components/BottomNav';
+import { AddPlayerForm } from '@/components/AddPlayerForm';
 import { Eyebrow } from '@/components/Eyebrow';
 import { Icon } from '@/components/Icon';
 import { LeafDecoration } from '@/components/LeafDecoration';
@@ -94,7 +95,7 @@ export default function CrewScreen() {
                       <Pressable
                         key={s.key}
                         accessibilityRole="radio"
-                        accessibilityState={{ selected }}
+                        aria-selected={selected}
                         accessibilityLabel={`Sort by ${s.label}`}
                         onPress={() => setSort(s.key)}
                         style={[styles.chip, selected && styles.chipSelected]}
@@ -119,19 +120,15 @@ export default function CrewScreen() {
                   </View>
                   <Text style={styles.emptyTitle}>It&apos;s just you so far</Text>
                   <Text style={styles.emptyCopy}>
-                    Add friends and family to your crew. Their games, handicap and best score will show up here.
+                    Add friends and family to your crew below. Their games, handicap and best score will show up here.
                   </Text>
-                  <Pressable accessibilityRole="button" style={styles.emptyButton} onPress={() => router.push('/players')}>
-                    <Icon name="plus" size={17} color="#fff" />
-                    <Text style={styles.emptyButtonText}>Add players</Text>
-                  </Pressable>
                 </View>
               ) : null}
+              <AddPlayerForm players={entries.map((e) => e.player)} />
             </>
           ) : null}
         </View>
       </ScrollView>
-      <BottomNav active="players" />
     </View>
   );
 }
@@ -143,7 +140,7 @@ function PlayerCard({ entry }: { entry: Entry }) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${player.isOwner ? 'You' : player.name}, open player details`}
-      onPress={() => router.push(`/player/${player.id}`)}
+      onPress={() => router.push(`/players/${player.id}`)}
       style={({ pressed }) => [styles.card, pressed && { transform: [{ scale: 0.99 }] }]}
     >
       <View style={styles.cardTop}>
@@ -253,15 +250,4 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { marginTop: 10, color: colors.ink, fontFamily: fonts.display, fontSize: 18 },
   emptyCopy: { marginTop: 3, maxWidth: 270, textAlign: 'center', color: '#82908a', fontSize: 10, fontFamily: fonts.body },
-  emptyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 13,
-    paddingVertical: 9,
-    paddingHorizontal: 15,
-    borderRadius: 11,
-    backgroundColor: colors.green,
-  },
-  emptyButtonText: { color: '#fff', fontSize: 11, fontFamily: fonts.bodyBold },
 });

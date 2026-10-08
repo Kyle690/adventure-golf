@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BottomNav, NAV_CLEARANCE } from '@/components/BottomNav';
+import { NAV_CLEARANCE } from '@/components/BottomNav';
 import { Eyebrow } from '@/components/Eyebrow';
 import { Icon } from '@/components/Icon';
 import { LeafDecoration } from '@/components/LeafDecoration';
@@ -61,7 +61,7 @@ export default function VenuesScreen() {
                       <Pressable
                         key={s.key}
                         accessibilityRole="radio"
-                        accessibilityState={{ selected }}
+                        aria-selected={selected}
                         accessibilityLabel={`Sort by ${s.label}`}
                         onPress={() => setSort(s.key)}
                         style={[styles.chip, selected && styles.chipSelected]}
@@ -77,7 +77,7 @@ export default function VenuesScreen() {
                   <VenueCard key={venue.id} venue={venue} />
                 ))}
               </View>
-              <Pressable accessibilityRole="button" style={styles.addRow} onPress={() => router.push('/venue/new')}>
+              <Pressable accessibilityRole="button" style={styles.addRow} onPress={() => router.push('/venues/new')}>
                 <Icon name="plus" size={18} color={colors.green} />
                 <Text style={styles.addRowText}>Add a venue</Text>
               </Pressable>
@@ -93,7 +93,7 @@ export default function VenuesScreen() {
               <Text style={styles.emptyCopy}>
                 Add the adventure golf venues you visit. Courses, games and your best scores will show up here.
               </Text>
-              <Pressable accessibilityRole="button" style={styles.emptyButton} onPress={() => router.push('/venue/new')}>
+              <Pressable accessibilityRole="button" style={styles.emptyButton} onPress={() => router.push('/venues/new')}>
                 <Icon name="plus" size={17} color="#fff" />
                 <Text style={styles.emptyButtonText}>Add venue</Text>
               </Pressable>
@@ -101,7 +101,6 @@ export default function VenuesScreen() {
           ) : null}
         </View>
       </ScrollView>
-      <BottomNav active="venues" />
     </View>
   );
 }
@@ -112,7 +111,7 @@ function VenueCard({ venue }: { venue: VenueSummary }) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${venue.name}, open venue`}
-      onPress={() => router.push(`/venue/${venue.id}`)}
+      onPress={() => router.push(`/venues/${venue.id}`)}
       style={({ pressed }) => [styles.card, pressed && { transform: [{ scale: 0.99 }] }]}
     >
       {venue.image ? (

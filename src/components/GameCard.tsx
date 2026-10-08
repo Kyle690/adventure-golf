@@ -26,8 +26,8 @@ export function GameCard({ game }: { game: GameDetail }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${game.courseName}, ${live ? 'live round, continue' : 'finished round, open scorecard'}`}
-      onPress={() => router.push(live ? `/game/${game.id}` : `/scorecard/${game.id}`)}
+      accessibilityLabel={`${game.courseName}, ${live ? 'live round, continue' : 'finished round, open result'}`}
+      onPress={() => router.push(live ? `/game/${game.id}` : `/game/${game.id}/complete`)}
       style={({ pressed }) => [styles.card, live && styles.cardLive, pressed && { transform: [{ scale: 0.99 }] }]}
     >
       <View style={styles.top}>

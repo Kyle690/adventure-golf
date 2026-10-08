@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { NAV_CLEARANCE } from '@/components/BottomNav';
 import { Eyebrow } from '@/components/Eyebrow';
 import { GameCard } from '@/components/GameCard';
 import { Icon } from '@/components/Icon';
@@ -17,7 +18,6 @@ import { listPlayers, listVenueGames, loadVenueSummary } from '@/db/queries';
 import { formatVsPar } from '@/lib/stats';
 import { timeAgo } from '@/lib/time';
 import type { CourseSummary } from '@/lib/venue-stats';
-import { useRoundDraft } from '@/state/round-draft';
 import { BRAND, colors, fonts } from '@/theme';
 
 function goBack() {
@@ -33,7 +33,6 @@ export default function VenueScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const venueId = Number(id);
   const insets = useSafeAreaInsets();
-  const draft = useRoundDraft();
   const { data } = useDbQuery(async () => {
     const [venue, players, games] = await Promise.all([loadVenueSummary(venueId), listPlayers(), listVenueGames(venueId)]);
     return { venue, games, names: new Map(players.map((p) => [p.id, p.isOwner ? 'You' : p.name])) };
@@ -50,16 +49,13 @@ export default function VenueScreen() {
     );
   }
 
-  const play = (courseId: number | null) => {
-    draft.setVenueId(venue.id);
-    draft.setCourseId(courseId);
-    router.push('/setup');
-  };
+  // Play: straight to the game flow's players step with this course; back returns here.
+  const play = (courseId: number) => router.push({ pathname: '/game/players', params: { courseId: String(courseId) } });
   const best = venue.ownerBest;
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: NAV_CLEARANCE + insets.bottom }}>
         <View style={[styles.header, { paddingTop: Math.max(16, insets.top) }]}>
           {venue.image ? (
             <>
@@ -114,12 +110,18 @@ export default function VenueScreen() {
           <SectionTitle aside={`${venue.courseCount} ${venue.courseCount === 1 ? 'course' : 'courses'}`}>Courses</SectionTitle>
           <View style={{ gap: 10 }}>
             {venue.courses.map((course) => (
-              <CourseCard key={course.id} course={course} names={data.names} onPlay={() => play(course.id)} />
+              <CourseCard
+                key={course.id}
+                course={course}
+                names={data.names}
+                onEdit={() => router.push(`/venues/${venue.id}/courses/${course.id}`)}
+                onPlay={() => play(course.id)}
+              />
             ))}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Add a course"
-              onPress={() => router.push({ pathname: '/course/new', params: { venueId: String(venue.id) } })}
+              onPress={() => router.push(`/venues/${venue.id}/courses/new`)}
               style={({ pressed }) => [styles.addCourse, pressed && { opacity: 0.75 }]}
             >
               <View style={styles.addCourseIcon}>
@@ -152,7 +154,10 @@ export default function VenueScreen() {
           )}
 
           {venue.courses.length ? (
-            <WideCta label="Start a game here" onPress={() => play(venue.courses[0].id)} />
+            <WideCta
+              label="Start a game here"
+              onPress={() => router.push({ pathname: '/game/new', params: { venueId: String(venue.id) } })}
+            />
           ) : null}
         </View>
       </ScrollView>
@@ -160,9 +165,18 @@ export default function VenueScreen() {
   );
 }
 
-function CourseCard({ course, names, onPlay }: { course: CourseSummary; names: Map<number, string>; onPlay: () => void }) {
+function CourseCard({
+  course,
+  names,
+  onEdit: edit,
+  onPlay,
+}: {
+  course: CourseSummary;
+  names: Map<number, string>;
+  onEdit: () => void;
+  onPlay: () => void;
+}) {
   const best = course.best;
-  const edit = () => router.push(`/course/${course.id}`);
   // The card body opens the course editor; Play is a sibling button (no nested buttons on web).
   return (
     <View style={styles.course}>

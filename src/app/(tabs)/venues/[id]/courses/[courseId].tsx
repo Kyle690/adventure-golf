@@ -14,8 +14,8 @@ type Course = NonNullable<Awaited<ReturnType<typeof getCourse>>>;
 
 /** Edit a course: name, photo, number of holes, par per hole, optional length/difficulty. */
 export default function CourseEditScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { data } = useDbQuery(() => getCourse(Number(id)).then((c) => c ?? null), id);
+  const { courseId } = useLocalSearchParams<{ courseId: string }>();
+  const { data } = useDbQuery(() => getCourse(Number(courseId)).then((c) => c ?? null), courseId);
   if (data === undefined) return <View style={courseFormPageStyles.screen} />;
   if (data === null) {
     return (
@@ -32,7 +32,7 @@ export default function CourseEditScreen() {
 function CourseEditor({ course }: { course: Course }) {
   const form = useCourseForm(course);
   const played = countCourseGames(course.id);
-  const back = () => goBackTo(`/venue/${course.venueId}`);
+  const back = () => goBackTo(`/venues/${course.venueId}`);
 
   const save = () => {
     if (!form.valid) return;

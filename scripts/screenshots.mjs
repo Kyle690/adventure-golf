@@ -1,5 +1,5 @@
 // Screenshot harness used to compare the Figma Make prototype (vite on :5174) with the Expo web
-// export (node scripts/serve-web.mjs on :8090). Needs playwright + Chrome: run it from a folder
+// demo export (node scripts/serve-web.mjs 8091 /tmp/demo-web). Needs playwright + Chrome: run it from a folder
 // where playwright is installed, e.g. node scripts/screenshots.mjs [proto|app|both].
 // The app flow expects the demo data: export with `EXPO_PUBLIC_DEMO_SEED=1 npx expo export -p web --dev`.
 import { chromium } from 'playwright';
@@ -43,7 +43,7 @@ if (which !== 'app') {
 
 if (which !== 'proto') {
   const p = await newPage();
-  await p.goto('http://localhost:8090/', { waitUntil: 'networkidle' });
+  await p.goto(process.env.APP_URL ?? 'http://localhost:8091/', { waitUntil: 'networkidle' });
   await p.getByText('ROUND IN PROGRESS').waitFor({ timeout: 60000 });
   await shot(p, 'app-01-home', 1200);
 
@@ -60,14 +60,9 @@ if (which !== 'proto') {
 
   await p.getByText('Start a new game').last().click();
   await p.getByText('Choose your course').waitFor();
+  // Pick-only (pars are edited from the venue page): the single venue is preselected, tap the course.
+  await p.getByLabel('Course The Tropical Trail').click();
   await shot(p, 'app-02-setup');
-  await p.getByText('The Tropical Trail').last().click();
-  await p.getByText('Set par for each hole').waitFor();
-  await shot(p, 'app-03-setup-par-editor');
-  await p.getByLabel('Increase hole 1 par').click();
-  await p.getByText('Par 30').first().waitFor();
-  await p.getByLabel('Decrease hole 1 par').click();
-  await p.getByText('Par 29').first().waitFor();
   await p.getByText('Choose players').last().click();
   await p.getByText("Who's playing?").waitFor();
   await shot(p, 'app-04-players');
@@ -75,8 +70,8 @@ if (which !== 'proto') {
   await p.getByLabel('Add player').click();
   await p.getByText('4 / 6 SAVED').waitFor();
   await shot(p, 'app-09-players-added');
-  await p.getByLabel('Remove Sam').click();
-  await p.getByText('3 / 6 SAVED').waitFor();
+  await p.getByRole('checkbox', { name: 'Sam' }).click(); // no delete in the game flow: deselect
+  await p.getByText('3 SELECTED').waitFor();
   await p.getByText('Start the round').last().click();
   await p.getByText('Enter scores').first().waitFor();
   await shot(p, 'app-05-game');
@@ -92,6 +87,7 @@ if (which !== 'proto') {
 
   // Full round: score every hole and finish; Last game updates. Then reload to prove persistence.
   await p.getByText('Start a new game').last().click();
+  await p.getByLabel('Course The Tropical Trail').click();
   await p.getByText('Choose players').last().click();
   await p.getByText('Start the round').last().click();
   await p.getByText('Enter scores').first().waitFor();
@@ -105,6 +101,8 @@ if (which !== 'proto') {
   }
   await shot(p, 'app-11-game-last-hole');
   await p.getByText('Finish round').last().click();
+  await p.getByText('CONFIRM RESULT', { exact: true }).waitFor();
+  await p.getByText('Confirm result').last().click();
   await p.getByText('Ready for an').waitFor();
   await p.reload({ waitUntil: 'networkidle' });
   await p.getByText('LAST GAME').waitFor({ timeout: 60000 });

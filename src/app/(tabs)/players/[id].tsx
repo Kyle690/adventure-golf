@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { NAV_CLEARANCE } from '@/components/BottomNav';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Eyebrow } from '@/components/Eyebrow';
 import { Icon } from '@/components/Icon';
@@ -101,7 +102,7 @@ function PlayerDetail({
       <ScrollView
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
-        contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+        contentContainerStyle={{ paddingBottom: NAV_CLEARANCE + insets.bottom }}
       >
         <View style={[styles.header, { paddingTop: Math.max(16, insets.top) }]}>
           <LeafDecoration />
@@ -295,7 +296,7 @@ function RoundRow({ round }: { round: RecentRound }) {
     ? `Live · hole ${Math.min(round.holeCount, round.holesPlayed + 1)} of ${round.holeCount}`
     : `${timeAgo(round.date)}${round.position ? ` · ${ordinal(round.position)} of ${round.playerCount}` : ''}`;
   return (
-    <Pressable accessibilityRole="button" style={styles.round} onPress={() => router.push(round.live ? `/game/${round.gameId}` : `/scorecard/${round.gameId}`)}>
+    <Pressable accessibilityRole="button" style={styles.round} onPress={() => router.push(round.live ? `/game/${round.gameId}` : `/game/${round.gameId}/complete`)}>
       <View style={[styles.roundIcon, round.live && { backgroundColor: '#ffe9e4' }]}>
         {round.live ? <View style={styles.liveDot} /> : <Icon name={round.position === 1 ? 'trophy' : 'flag'} color="#348d45" />}
       </View>

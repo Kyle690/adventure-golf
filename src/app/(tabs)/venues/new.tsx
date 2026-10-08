@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { NAV_CLEARANCE } from '@/components/BottomNav';
 import { Eyebrow } from '@/components/Eyebrow';
 import { Icon } from '@/components/Icon';
 import { LeafDecoration } from '@/components/LeafDecoration';
@@ -19,7 +20,7 @@ function goBack() {
   else router.replace('/venues');
 }
 
-/** Add a venue (name required, address + photo optional); returns to the screen that opened it. */
+/** Add a venue (name required, address + photo optional), then open it to add its courses. */
 export default function NewVenueScreen() {
   const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
@@ -29,8 +30,8 @@ export default function NewVenueScreen() {
 
   const save = () => {
     if (!valid) return;
-    createVenue({ name: name.trim(), address: address.trim() || null, image });
-    goBack();
+    const venue = createVenue({ name: name.trim(), address: address.trim() || null, image });
+    router.replace(`/venues/${venue.id}`);
   };
 
   return (
@@ -38,7 +39,7 @@ export default function NewVenueScreen() {
       <ScrollView
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
-        contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+        contentContainerStyle={{ paddingBottom: NAV_CLEARANCE + insets.bottom }}
       >
         <View style={[styles.header, { paddingTop: Math.max(16, insets.top) }]}>
           <LeafDecoration />
@@ -51,7 +52,7 @@ export default function NewVenueScreen() {
           </View>
           <Eyebrow style={{ color: '#90ce5e', marginBottom: 7 }}>NEW VENUE</Eyebrow>
           <Text style={styles.title}>Add a venue</Text>
-          <Text style={styles.subtitle}>Courses for a new venue can be added in a later update.</Text>
+          <Text style={styles.subtitle}>Save it, then add its courses from the venue page.</Text>
         </View>
         <View style={styles.content}>
           <FieldCard>

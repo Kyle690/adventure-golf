@@ -11,11 +11,11 @@ import { Icon } from '@/components/Icon';
 import { LeafDecoration } from '@/components/LeafDecoration';
 import { Logo } from '@/components/Logo';
 import { PlayerAvatar } from '@/components/PlayerAvatar';
-import { FinishSheet } from '@/components/FinishSheet';
 import { RoundMenu } from '@/components/RoundMenu';
 import { useDbQuery } from '@/db/hooks';
-import { completeGame, deleteGame, getGame, setScore } from '@/db/queries';
-import { currentHoleIndex, gameResults, playerTotals, scoreGrid, totalPar } from '@/lib/game';
+import { deleteGame, getGame, setScore } from '@/db/queries';
+import { currentHoleIndex, playerTotals, scoreGrid, totalPar } from '@/lib/game';
+import { useExitGameFlow } from '@/lib/navigation';
 import { playerColor } from '@/lib/players';
 import { colors, fonts, MAX_STROKES } from '@/theme';
 
@@ -30,9 +30,7 @@ export default function GameScreen() {
 
   const [activeHole, setActiveHole] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [finishOpen, setFinishOpen] = useState(false);
-  // Set when the result is confirmed, so the screen doesn't redirect to the scorecard while it is leaving.
-  const [confirmed, setConfirmed] = useState(false);
+  const exitGame = useExitGameFlow();
   const [width, setWidth] = useState(0);
   const scroller = useRef<ScrollView>(null);
   const positioned = useRef(false);
@@ -61,7 +59,7 @@ export default function GameScreen() {
     return (
       <View style={[styles.screen, styles.center]}>
         <Text style={styles.missing}>This round no longer exists.</Text>
-        <Pressable style={styles.nextHole} onPress={() => router.dismissTo('/')}>
+        <Pressable style={styles.nextHole} onPress={exitGame}>
           <Text style={styles.nextHoleText}>Back home</Text>
         </Pressable>
       </View>
@@ -70,7 +68,7 @@ export default function GameScreen() {
 
   // Finished rounds are read-only: show the score sheet instead of the score entry screen.
   if (game.status === 'completed') {
-    return confirmed ? <View style={styles.screen} /> : <Redirect href={`/scorecard/${game.id}`} />;
+    return <Redirect href={`/game/${game.id}/complete`} />;
   }
 
   const holes = game.holes;
@@ -98,18 +96,8 @@ export default function GameScreen() {
     if (next !== current) setScore(game.id, players[playerIndex].id, holes[holeIndex].id, next);
   };
 
-  // "Finish round" opens the result confirmation; only "Confirm result" completes the game.
-  const finish = () => {
-    setFinishOpen(true);
-  };
-  const confirmResult = () => {
-    setFinishOpen(false);
-    setConfirmed(true);
-    completeGame(game.id);
-    // Reset the stack to Home so back can't return to the finished round.
-    if (router.canDismiss()) router.dismissAll();
-    router.replace('/');
-  };
+  // "Finish round" opens the game complete screen to confirm the result; nothing is saved until then.
+  const finish = () => router.push(`/game/${game.id}/complete`);
 
   return (
     <View style={styles.screen}>
@@ -117,7 +105,7 @@ export default function GameScreen() {
         <View style={[styles.header, { paddingTop: Math.max(16, insets.top), height: 258 + Math.max(0, insets.top - 16) }]}>
           <LeafDecoration />
           <View style={styles.topbar}>
-            <Pressable accessibilityLabel="Leave game" onPress={() => router.dismissTo('/')} style={styles.roundButton}>
+            <Pressable accessibilityLabel="Leave game" onPress={exitGame} style={styles.roundButton}>
               <Icon name="close" color="#fff" />
             </Pressable>
             <Logo compact />
@@ -257,24 +245,16 @@ export default function GameScreen() {
         </View>
       </ScrollView>
 
-      <FinishSheet
-        visible={finishOpen}
-        courseName={game.courseName}
-        results={gameResults(game)}
-        players={players}
-        onConfirm={confirmResult}
-        onCancel={() => setFinishOpen(false)}
-      />
       <RoundMenu
         visible={menuOpen}
         courseName={game.courseName}
         onClose={() => setMenuOpen(false)}
-        onSaveAndExit={() => router.dismissTo('/')}
+        onSaveAndExit={exitGame}
         onQuit={() => {
           setMenuOpen(false);
           deleteGame(game.id);
           refresh();
-          router.dismissTo('/');
+          exitGame();
         }}
       />
     </View>

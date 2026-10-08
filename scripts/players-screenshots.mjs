@@ -27,8 +27,8 @@ const scrollTo = (selectorText) =>
     el?.scrollIntoView({ block: 'start' });
   }, selectorText);
 
-// Game-setup picker keeps the prototype behaviour: tapping a row toggles selection.
-await page.goto(URL + 'players', { waitUntil: 'networkidle' });
+// Game-flow player picker keeps the prototype behaviour: tapping a row toggles selection.
+await page.goto(URL + 'game/players?courseId=1', { waitUntil: 'networkidle' });
 await page.evaluate(() => document.fonts.ready);
 await settle(2500);
 const alexRow = page.getByRole('checkbox').filter({ hasText: 'Alex' }).last();
@@ -37,15 +37,16 @@ const before = await selectedCount();
 await alexRow.click();
 await settle(300);
 check(before === '3 SELECTED' && (await selectedCount()) === '2 SELECTED', 'picker: tapping a row toggles selection (no navigation)');
-check(page.url().endsWith('/players'), 'picker: stays on the picker');
+check(page.url().includes('/game/players'), 'picker: stays on the picker');
+check((await page.getByLabel(/^Remove /).count()) === 0, 'picker: no delete');
 await alexRow.click();
 await shot('players-01-list');
 
 // Players tab -> crew list.
 await page.goto(URL, { waitUntil: 'networkidle' });
 await settle(2000);
-await page.getByRole('button', { name: 'Players', exact: true }).last().click();
-await page.waitForURL(/\/crew$/);
+await page.getByRole('tab', { name: 'Players', exact: true }).click();
+await page.waitForURL(/\/players$/);
 await shot('players-10-tab', 1000);
 check(await page.getByText('HANDICAP').first().isVisible(), 'crew cards show handicap');
 await page.getByLabel('Sort by Best').click();
@@ -54,15 +55,15 @@ await page.getByLabel('Sort by Name').click();
 
 // Owner detail with the calculated handicap.
 await page.getByLabel('You, open player details').last().click();
-await page.waitForURL(/\/player\//);
+await page.waitForURL(/\/players\/\d+$/);
 await shot('players-12-detail-handicap');
 check(await page.getByText('HANDICAP · CALCULATED').isVisible(), 'detail shows calculated handicap');
 await page.getByLabel('Back to players').click();
-await page.waitForURL(/\/crew$/);
+await page.waitForURL(/\/players$/);
 
 // Alex: detail with stats, then edit.
 await page.getByLabel('Alex, open player details').last().click();
-await page.waitForURL(/\/player\//);
+await page.waitForURL(/\/players\/\d+$/);
 await shot('players-02-detail');
 check(await page.getByText('BEST ROUND').isVisible(), 'detail shows stats');
 
@@ -81,30 +82,30 @@ await scrollTo('Recent rounds');
 await shot('players-04-recent-rounds');
 await page.getByRole('button', { name: 'Save changes' }).click();
 
-await page.waitForURL(/\/crew$/);
+await page.waitForURL(/\/players$/);
 await shot('players-05-list-updated', 1200);
 check(await page.getByText('Alex Morgan').last().isVisible(), 'list shows the edited name');
 
 // Owner: editable, cannot be deleted.
 await page.getByLabel('You, open player details').last().click();
-await page.waitForURL(/\/player\//);
+await page.waitForURL(/\/players\/\d+$/);
 check((await page.getByText('Remove player').count()) === 0, 'owner has no remove action');
 await page.getByLabel('NAME', { exact: true }).fill('Kyle Winter');
 await page.getByLabel('STARTING HANDICAP').fill('12');
 await scrollTo('Recent rounds');
 await shot('players-06-owner-edit');
 await page.getByRole('button', { name: 'Save changes' }).click();
-await page.waitForURL(/\/crew$/);
+await page.waitForURL(/\/players$/);
 await settle();
 check(await page.getByText('Scorekeeper · Kyle Winter').last().isVisible(), 'owner rename saved');
 
 // Jordan: delete with confirmation.
 await page.getByLabel('Jordan, open player details').last().click();
-await page.waitForURL(/\/player\//);
+await page.waitForURL(/\/players\/\d+$/);
 await page.getByText('Remove player', { exact: true }).click();
 await shot('players-07-delete-confirm', 600);
 await page.getByText('Yes, remove player').click();
-await page.waitForURL(/\/crew$/);
+await page.waitForURL(/\/players$/);
 await shot('players-08-after-delete', 1000);
 check((await page.getByText('Jordan', { exact: true }).count()) === 0, 'Jordan removed');
 
@@ -132,7 +133,7 @@ await p2.waitForURL(/complete/);
 await p2.getByRole('button', { name: 'Go to Home' }).click();
 await p2.waitForTimeout(1500);
 await p2.getByText('Players', { exact: true }).filter({ visible: true }).first().click(); // Home "Players" shortcut
-await p2.waitForURL(/\/crew$/);
+await p2.waitForURL(/\/players$/);
 await p2.waitForTimeout(1000);
 await p2.screenshot({ path: `${OUT}/players-11-tab-empty.png` });
 log('saved', 'players-11-tab-empty');

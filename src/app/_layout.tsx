@@ -20,6 +20,9 @@ import { colors } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
 
+// Deep links into the game flow or onboarding still have the tabs underneath to go back to.
+export const unstable_settings = { initialRouteName: '(tabs)' };
+
 export default function RootLayout() {
   // Fonts ship inside the app bundle (no network needed), matching the prototype's Google Fonts.
   const [fontsLoaded, fontError] = useFonts({
@@ -52,9 +55,12 @@ export default function RootLayout() {
                   contentStyle: { backgroundColor: colors.cream },
                 }}
               >
+                {/* Home, Venues, Players and History tabs (custom floating tab bar). */}
+                <Stack.Screen name="(tabs)" />
                 {/* First-run flow: no swipe-back into it / out of it. */}
-                <Stack.Screen name="onboarding/index" options={{ gestureEnabled: false }} />
-                <Stack.Screen name="onboarding/complete" options={{ gestureEnabled: false }} />
+                <Stack.Screen name="(onboarding)" options={{ gestureEnabled: false }} />
+                {/* New game -> players -> scoring -> result, presented over the tabs (no tab bar). */}
+                <Stack.Screen name="game" options={{ animation: 'slide_from_bottom' }} />
               </Stack>
             </RoundDraftProvider>
           </DatabaseProvider>

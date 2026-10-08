@@ -9,20 +9,22 @@ import { Logo } from '@/components/Logo';
 import { PlayerAvatar } from '@/components/PlayerAvatar';
 import { Text } from '@/components/Text';
 import { useDbQuery } from '@/db/hooks';
-import { getGame } from '@/db/queries';
+import { completeGame, getGame } from '@/db/queries';
 import { gameResults, scoreGrid, totalPar } from '@/lib/game';
+import { finishToHome } from '@/lib/navigation';
 import { winnerHeadline } from '@/lib/results';
 import { formatVsPar } from '@/lib/stats';
 import { formatDayTime } from '@/lib/time';
 import { colors, fonts } from '@/theme';
 
-function goBack() {
-  if (router.canGoBack()) router.back();
-  else router.replace('/');
-}
-
-/** Read-only score sheet for a finished round: hole-by-hole grid, totals, vs par, winner highlighted. */
-export default function ScorecardScreen() {
+/**
+ * Game complete. One screen for both:
+ * - a just-finished live round ("Finish round"): results to check, then "Confirm result" marks it
+ *   completed and resets to the Home tab; "Keep editing scores" goes back to scoring;
+ * - a completed round (History, venue, player, Home last game): read-only review.
+ * Both show the winner, standings and the hole-by-hole score sheet from the game's snapshot.
+ */
+export default function GameCompleteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const { data: game } = useDbQuery(() => getGame(Number(id)).then((g) => g ?? null), id);
@@ -50,6 +52,16 @@ export default function ScorecardScreen() {
   const byPlayer = new Map(results.map((r) => [r.playerId, r]));
   const par = totalPar(holes);
   const live = game.status === 'in_progress';
+  const nothingScored = results.every((r) => r.holesScored === 0);
+  const missing = results.some((r) => r.missing > 0 && r.holesScored > 0);
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace(live ? `/game/${game.id}` : '/history');
+  };
+  const confirm = () => {
+    completeGame(game.id);
+    finishToHome();
+  };
 
   return (
     <View style={styles.screen}>
@@ -63,7 +75,7 @@ export default function ScorecardScreen() {
             <Logo compact />
             <View style={{ width: 38 }} />
           </View>
-          <Eyebrow style={{ color: '#90ce5e', marginBottom: 7 }}>{live ? 'ROUND IN PROGRESS' : 'FINAL SCORECARD'}</Eyebrow>
+          <Eyebrow style={{ color: '#90ce5e', marginBottom: 7 }}>{live ? 'CONFIRM RESULT' : 'FINAL SCORECARD'}</Eyebrow>
           <Text style={styles.title}>{game.courseName}</Text>
           <View style={styles.meta}>
             <View style={styles.metaChip}>
@@ -87,7 +99,7 @@ export default function ScorecardScreen() {
               <Icon name="trophy" size={24} color="#c99a12" />
             </View>
             <View style={{ flex: 1 }}>
-              <Eyebrow style={{ color: '#b9861a', marginBottom: 4 }}>{live ? 'LEADING' : 'WINNER'}</Eyebrow>
+              <Eyebrow style={{ color: '#b9861a', marginBottom: 4 }}>{live ? 'FINAL RESULT' : 'WINNER'}</Eyebrow>
               <Text style={styles.winnerTitle}>{winnerHeadline(results)}</Text>
               {results[0]?.holesScored ? (
                 <Text style={styles.winnerSub}>
@@ -97,6 +109,50 @@ export default function ScorecardScreen() {
             </View>
           </View>
 
+          <Text style={styles.section}>Standings</Text>
+          <View style={{ gap: 7 }}>
+            {results.map((r) => {
+              const index = players.findIndex((p) => p.id === r.playerId);
+              return (
+                <View key={r.playerId} style={[styles.standing, r.isWinner && styles.standingWinner]}>
+                  <Text style={styles.rank}>{r.rank ?? '–'}</Text>
+                  <PlayerAvatar player={players[index]} index={index} size={32} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.standingName}>{r.name}</Text>
+                    <Text style={styles.standingSub}>
+                      {r.holesScored ? `${formatVsPar(r.vsPar)} vs par` : 'No scores'}
+                      {r.missing && r.holesScored ? ` · ${r.missing} not scored` : ''}
+                    </Text>
+                  </View>
+                  {r.isWinner ? <Icon name="trophy" size={18} color="#c99a12" /> : null}
+                  <Text style={styles.standingTotal}>{r.holesScored ? r.total : '–'}</Text>
+                </View>
+              );
+            })}
+          </View>
+
+          {live ? (
+            <View style={styles.actions}>
+              <Text style={styles.copy}>Check the totals. Once confirmed, the round is saved as finished.</Text>
+              {missing ? (
+                <Text style={styles.warning}>Some holes have no score. Totals only count the holes that were scored.</Text>
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                disabled={nothingScored}
+                style={[styles.button, styles.confirm, nothingScored && { opacity: 0.45 }]}
+                onPress={confirm}
+              >
+                <Icon name="check" size={17} strokeWidth={2.6} color="#fff" />
+                <Text style={[styles.buttonText, { color: '#fff' }]}>Confirm result</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" style={styles.button} onPress={goBack}>
+                <Text style={styles.buttonText}>Keep editing scores</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+          <Text style={styles.section}>Score sheet</Text>
           {/* Grid: one row per hole, one column per player (fits up to 6 players on a phone). */}
           <View style={styles.table}>
             <View style={[styles.tr, styles.thead]}>
@@ -169,27 +225,6 @@ export default function ScorecardScreen() {
             <Text style={styles.legendText}>Hole-in-one</Text>
           </View>
 
-          <Text style={styles.section}>Standings</Text>
-          <View style={{ gap: 7 }}>
-            {results.map((r) => {
-              const index = players.findIndex((p) => p.id === r.playerId);
-              return (
-                <View key={r.playerId} style={[styles.standing, r.isWinner && styles.standingWinner]}>
-                  <Text style={styles.rank}>{r.rank ?? '–'}</Text>
-                  <PlayerAvatar player={players[index]} index={index} size={32} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.standingName}>{r.name}</Text>
-                    <Text style={styles.standingSub}>
-                      {r.holesScored ? `${formatVsPar(r.vsPar)} vs par` : 'No scores'}
-                      {r.missing && r.holesScored ? ` · ${r.missing} not scored` : ''}
-                    </Text>
-                  </View>
-                  {r.isWinner ? <Icon name="trophy" size={18} color="#c99a12" /> : null}
-                  <Text style={styles.standingTotal}>{r.holesScored ? r.total : '–'}</Text>
-                </View>
-              );
-            })}
-          </View>
         </View>
       </ScrollView>
     </View>
@@ -253,7 +288,6 @@ const styles = StyleSheet.create({
   winnerTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 21, lineHeight: 26 },
   winnerSub: { color: '#7c6a2e', fontSize: 10, fontFamily: fonts.bodySemi },
   table: {
-    marginTop: 14,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#dfe4dc',
@@ -286,6 +320,20 @@ const styles = StyleSheet.create({
   legend: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 9, marginLeft: 2 },
   legendSwatch: { width: 12, height: 12, borderRadius: 4 },
   legendText: { marginRight: 8, color: '#82908a', fontSize: 9, fontFamily: fonts.body },
+  actions: { gap: 10, marginTop: 16 },
+  copy: { textAlign: 'center', color: '#7c8c84', fontSize: 11, lineHeight: 16, fontFamily: fonts.body },
+  warning: { textAlign: 'center', color: '#b9142e', fontSize: 10, fontFamily: fonts.bodySemi },
+  button: {
+    flexDirection: 'row',
+    gap: 7,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 13,
+    borderRadius: 12,
+    backgroundColor: '#e8eee5',
+  },
+  confirm: { backgroundColor: colors.red, boxShadow: '0 8px 18px rgba(237, 27, 59, 0.22)' },
+  buttonText: { color: colors.ink, fontSize: 12, fontFamily: fonts.bodyBold },
   section: { marginTop: 22, marginBottom: 10, color: colors.ink, fontFamily: fonts.display, fontSize: 20 },
   standing: {
     flexDirection: 'row',

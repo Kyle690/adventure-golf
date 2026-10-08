@@ -1,37 +1,58 @@
-import { router } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
-
-import { Text } from '@/components/Text';
+import type { BottomTabBarProps } from 'expo-router/js-tabs';
+import { useEffect, useState } from 'react';
+import { Keyboard, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, type IconName } from '@/components/Icon';
+import { Text } from '@/components/Text';
 import { colors, fonts } from '@/theme';
 
-export type NavTab = 'home' | 'venues' | 'players';
+const ITEMS: Record<string, { label: string; icon: IconName }> = {
+  index: { label: 'Home', icon: 'home' },
+  venues: { label: 'Venues', icon: 'pin' },
+  players: { label: 'Players', icon: 'users' },
+  history: { label: 'History', icon: 'history' },
+};
 
-const ITEMS: { label: string; icon: IconName; tab?: NavTab; href: '/' | '/venues' | '/crew' }[] = [
-  { label: 'Home', icon: 'home', tab: 'home', href: '/' },
-  // Venues tab = the venue list with stats; New game (/setup -> /players) is a flow started from Home.
-  { label: 'Venues', icon: 'pin', tab: 'venues', href: '/venues' },
-  // Players tab = the crew list with stats; the round's player picker (/players) is part of New game.
-  { label: 'Players', icon: 'users', tab: 'players', href: '/crew' },
-  // The prototype's History tab routes to Home (no history screen yet), so it is never highlighted.
-  { label: 'History', icon: 'history', href: '/' },
-];
+function useKeyboardVisible() {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setVisible(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setVisible(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  return visible;
+}
 
-/** Floating bottom navigation pill (prototype .bottom-nav). `active` is omitted inside the New game flow, which isn't a tab. */
-export function BottomNav({ active }: { active?: NavTab }) {
+/**
+ * Floating bottom navigation pill (prototype .bottom-nav), used as the (tabs) navigator's custom
+ * tab bar. Pressing the focused tab again pops its stack to the top (native tab behaviour).
+ */
+export function BottomNav({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const keyboardVisible = useKeyboardVisible();
+  if (keyboardVisible) return null;
+
   return (
     <View style={[styles.nav, { bottom: Math.max(10, insets.bottom) }]}>
-      {ITEMS.map((item) => {
-        const isActive = item.tab !== undefined && active === item.tab;
+      {state.routes.map((route, index) => {
+        const item = ITEMS[route.name];
+        if (!item) return null;
+        const isActive = state.index === index;
+        const onPress = () => {
+          const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+          if (!isActive && !event.defaultPrevented) navigation.navigate(route.name, route.params);
+        };
         return (
           <Pressable
-            accessibilityRole="button"
+            accessibilityRole="tab"
+            aria-selected={isActive}
             accessibilityLabel={item.label}
-            key={item.label}
-            onPress={() => router.dismissTo(item.href)}
+            key={route.key}
+            onPress={onPress}
             style={[styles.item, isActive && styles.itemActive]}
           >
             <Icon name={item.icon} size={21} color={isActive ? colors.green : '#9aa49f'} />

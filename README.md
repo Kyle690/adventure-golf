@@ -24,44 +24,51 @@ to the JS bundles, not the HTML page, so the database can't open in the web dev 
 ## Structure
 
 ```
-src/app/              Expo Router screens
-  _layout.tsx         fonts, providers, stack
-  index.tsx           Home (live round, start CTA, clubhouse, last game); redirects to
-                      onboarding while no owner exists / onboarding is unfinished
-  onboarding/index.tsx  first-run carousel: owner -> venue -> course -> crew (reanimated pager)
-  onboarding/complete.tsx  celebration + recap of venue/course/crew (confetti, ball) -> Home
-  venues.tsx          Venues tab: venue cards (photo, address, courses / games / last played,
-                      your best), sort by name / most played / recent, empty state, add venue
-  venue/new.tsx       Add a venue (name, address, photo)
-  venue/[id].tsx      Venue detail: stats, courses (tap = edit, Play = start a round there),
-                      "Add a course", and every game played there (all courses), newest first
-  course/new.tsx      Add a course to a venue (?venueId=; select=1 from New game also selects
-                      it for the round), same CourseForm in create mode
-  course/[id].tsx     Course edit: name, photo, hole count, par per hole, length/difficulty
-                      (shared CourseForm with onboarding); applies to future games only
-  scorecard/[id].tsx  Read-only score sheet: hole x player grid, totals, vs par, winner column
-  setup.tsx           New game: venue, course, per-hole par editor
-  players.tsx         New game step 2, Who's playing: tap to select / add / remove players,
-                      start the round (prototype behaviour)
-  crew.tsx            Players tab: every player (owner first as "You") with games, calculated
-                      handicap and best score; sort by name/handicap/games/best; owner-only
-                      empty state; tapping a card opens the player screen
-  player/[id].tsx     Player detail: calculated handicap, stats, edit (name, colour, photo,
-                      starting handicap), recent
-                      rounds, remove (non-owner, with confirmation)
-  game/[id].tsx       Live scoring: hole carousel, steppers, scoreboard, round options.
-                      "Finish round" opens FinishSheet (winner + totals); only "Confirm result"
-                      completes the game, then the stack is reset to Home. Completed games
-                      redirect to the score sheet
-src/components/       Icon (prototype SVG paths), Logo, LeafDecoration, GolfBall, BottomNav,
-                      RoundMenu (bottom sheet + quit confirm), PlayerAvatar, WideCta, Eyebrow, Text,
-                      ParEditor (shared by Setup and onboarding), ConfirmDialog, CourseForm,
-                      GameCard (Live badge -> continue / finished -> score sheet), FinishSheet
+src/app/              Expo Router screens (route groups in parentheses don't appear in URLs)
+  _layout.tsx         fonts, providers, root Stack: (tabs) [initial], (onboarding), game
+  (onboarding)/       own Stack (no swipe back); Home redirects here while no owner exists or
+                      onboarding is unfinished
+    onboarding/index.tsx     first-run carousel: owner -> venue -> course -> crew (pager)
+    onboarding/complete.tsx  celebration + recap of venue/course/crew -> Home (replace)
+  (tabs)/_layout.tsx  bottom Tabs navigator; the floating BottomNav is its custom tabBar
+    index.tsx         Home tab (/): live round, start CTA, clubhouse shortcuts, last game
+    venues/           Venues tab Stack (list underneath any deep-linked venue screen)
+      index.tsx       /venues: venue cards (photo, address, courses / games / last played, your
+                      best), sort by name / most played / recent, empty state, add venue
+      new.tsx         /venues/new: add a venue, then opens its detail page
+      [id]/index.tsx  /venues/:id: stats, courses (Edit, Play), "Add a course", every game played
+                      there (live -> game, finished -> game complete), newest first
+      [id]/courses/new.tsx         add a course to the venue (shared CourseForm, create mode)
+      [id]/courses/[courseId].tsx  edit a course; applies to future games only
+    players/          Players tab Stack
+      index.tsx       /players: crew list (owner first as "You") with games, calculated handicap,
+                      best; sort; inline "add a player"; owner-only empty state
+      [id].tsx        /players/:id: calculated handicap, stats, edit (name, colour, photo,
+                      starting handicap), recent rounds, remove (non-owner, with confirmation)
+    history/          History tab Stack
+      index.tsx       /history: every finished game, newest first: snapshot course/venue names,
+                      date, players, winner, your total vs par; tap -> game complete (review)
+  game/               game Stack, presented over the tabs (no tab bar)
+    new.tsx           /game/new: select venue & course, pick-only (no edit/par editor/create);
+                      the course list loads for the chosen venue; ?venueId= preselects a venue
+    players.tsx       /game/players?courseId=: Who's playing: tap to select, add a player (no
+                      delete), start the round (replaces the picker with the game screen)
+    [id]/index.tsx    /game/:id: live scoring (hole carousel, steppers, scoreboard, round options);
+                      "Finish round" pushes the game complete screen; finished games redirect there
+    [id]/complete.tsx /game/:id/complete: one screen for both modes. Live round: CONFIRM RESULT
+                      (winner, standings, missing-hole warning, Confirm result / Keep editing,
+                      score sheet). Finished round: read-only FINAL SCORECARD
+src/components/       Icon (prototype SVG paths), Logo, LeafDecoration, GolfBall, BottomNav (tab
+                      bar), RoundMenu (bottom sheet + quit confirm), PlayerAvatar, WideCta, Eyebrow,
+                      Text, ParEditor + CourseForm (course create/edit and onboarding),
+                      ConfirmDialog, AddPlayerForm (Players tab + game player picker),
+                      GameCard (Live badge -> continue / finished -> game complete)
   onboarding/         StepPage, StepDots, Form fields, Confetti, BouncingBall, steps/*
 src/lib/handicap.ts   calculated handicap (pure functions) + handicap.test.ts (npm test)
 src/lib/stats.ts      per-player stats (rounds, wins, best, avg/hole, holes-in-one, recent)
 src/lib/venue-stats.ts  venue/course summaries + sorting (pure, venue-stats.test.ts)
 src/lib/results.ts    game ranking / winner headline (pure, results.test.ts)
+src/lib/navigation.ts leave the game stack (useExitGameFlow) / after Confirm result (finishToHome)
 src/lib/images.ts     image picker -> copy into documentDirectory/images (data: URI on web)
 src/db/
   schema.ts           Drizzle schema + relations
@@ -77,9 +84,11 @@ patches/              expo-sqlite web fixes (see below)
 scripts/              serve-web.mjs, screenshots.mjs (prototype vs app, needs a demo build),
                       onboarding-screenshots.mjs (fresh DB walkthrough + checks),
                       players-screenshots.mjs (player edit/delete on a demo build + checks),
-                      venues-screenshots.mjs (venues, course edit, score sheet, finish confirm),
+                      venues-screenshots.mjs (venues, course edit/create, game complete, picker),
+                      nav-screenshots.mjs (tabs, game stack, exits/resets, deep links + checks),
                       upgrade-check.mjs (previous build -> this build on the same web DB)
-screenshots/          prototype-*.png vs app-*.png, onboarding-*.png, players-*.png, venues-*.png
+screenshots/          prototype-*.png vs app-*.png, onboarding-*.png, players-*.png, venues-*.png,
+                      nav-*.png
 ```
 
 ## Database
@@ -130,22 +139,47 @@ The manual `players.handicap` column is kept and labelled "Starting handicap": i
 (marked as starting) until the player has a completed round, then the calculated value is used
 everywhere. Lists always show the calculated value.
 
-## Venues, score sheet, finishing a round
+## Navigation
 
-- Courses: venue detail's "Add a course" card and New game's "Create a new course" open
-  `/course/new` for that venue; `createCourse()` writes the course and holes in one transaction.
-- Bottom nav: Home, Venues (`/venues`), Players (`/crew`); History still goes to Home and is never
-  highlighted. New game (`/setup` -> `/players`) is a flow started from Home, not a tab, so no tab
-  is highlighted there. Home's Venues / Players shortcuts open the same tab screens.
+```
+Root Stack
+├── (tabs)  Tabs, custom floating tab bar          [initial route]
+│   ├── index            Home
+│   ├── venues   Stack:  index -> new | [id] -> [id]/courses/new | [id]/courses/[courseId]
+│   ├── players  Stack:  index -> [id]
+│   └── history  Stack:  index
+├── (onboarding)  Stack: onboarding/index -> onboarding/complete
+└── game  Stack (slides up over the tabs, no tab bar)
+    new -> players -> [id] (game) -> [id]/complete
+```
+
+- Entry points: Home "Start a new game" -> `/game/new`; "Start a game here" on a venue ->
+  `/game/new?venueId=`; a course's Play -> `/game/players?courseId=` directly (back returns to the
+  venue); Resume / live game cards -> `/game/:id`; History, venue and player game cards and Home's
+  Last game -> `/game/:id/complete` (review).
+- The chosen course travels as a route param, so every game-stack screen deep-links on its own;
+  only the player selection is shared state (`RoundDraftProvider`).
+- Leaving a round ("Leave game", "Save & exit", "Quit round") pops the whole game stack, back to
+  the tab screen it was opened from. "Confirm result" completes the game and `dismissTo('/')`s,
+  so you land on Home and back can't reopen the round.
+- Tab stacks keep their place when switching tabs; tapping the focused tab pops to its list.
+  The tab bar stays visible on venue/player/course screens (they pad for it) and hides while the
+  keyboard is open.
+- Deep links: the root's `initialRouteName` is `(tabs)` and each tab stack's is `index`, so e.g.
+  `/venues/1` has the venues list underneath and `/game/1/complete` has Home underneath.
+
+## Venues, courses, game complete
+
+- Courses are created and edited only from the venue page ("Add a course", a course card's
+  Edit); `createCourse()` writes the course and holes in one transaction. New game only picks.
 - Venue stats (`loadVenueSummaries`): course count and holes, games played = finished games,
   last played = most recent finished or live round, best = lowest FULL round (every hole of that
   round scored), vs par from the round's own snapshot. Abandoned rounds are hidden everywhere.
 - Game cards: live rounds show a red "LIVE · HOLE x OF y" badge and open the game screen;
-  finished rounds open the read-only score sheet (also from Home's Last game card and player
-  recent rounds).
-- Finishing: the last hole's "Finish round" shows the result (ranked totals, vs par, winner,
-  missing-hole warning). "Confirm result" sets status=completed and completedAt=now (only for a
-  live round), then resets the stack to Home, so back can't reopen the round.
+  finished rounds open the game complete screen read-only.
+- Finishing: the last hole's "Finish round" opens the game complete screen in confirm mode
+  (ranked totals, vs par, winner, missing-hole warning, score sheet). "Confirm result" sets
+  status=completed and completedAt=now (only for a live round); "Keep editing scores" goes back.
 
 Not done yet: editing/deleting venues, deleting courses.
 

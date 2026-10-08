@@ -1,49 +1,40 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-
-import { Text } from '@/components/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BottomNav, NAV_CLEARANCE } from '@/components/BottomNav';
 import { Eyebrow } from '@/components/Eyebrow';
 import { Icon } from '@/components/Icon';
 import { Logo } from '@/components/Logo';
-import { ParEditor } from '@/components/ParEditor';
+import { Text } from '@/components/Text';
 import { WideCta } from '@/components/WideCta';
 import { useDbQuery } from '@/db/hooks';
-import { lastPlayedByCourse, listVenues, setHolePar } from '@/db/queries';
+import { lastPlayedByCourse, listVenues } from '@/db/queries';
 import { totalPar } from '@/lib/game';
 import { timeAgo } from '@/lib/time';
-import { useRoundDraft } from '@/state/round-draft';
 import { BRAND, colors, fonts } from '@/theme';
 
-export default function SetupScreen() {
+/**
+ * Game flow step 1, pick-only: choose a venue, then one of its courses; that enables "Choose
+ * players". Venues/courses are created and edited in the Venues tab, not here.
+ * ?venueId= preselects a venue (venue detail "Start a game here").
+ */
+export default function SelectCourseScreen() {
   const insets = useSafeAreaInsets();
-  const draft = useRoundDraft();
-  const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
+  const params = useLocalSearchParams<{ venueId?: string }>();
+  const [pickedVenueId, setPickedVenueId] = useState<number | null>(params.venueId ? Number(params.venueId) : null);
+  const [courseId, setCourseId] = useState<number | null>(null);
   const { data } = useDbQuery(async () => {
     const [venues, lastPlayed] = await Promise.all([listVenues(), lastPlayedByCourse()]);
     return { venues, lastPlayed };
   });
 
   const venues = data?.venues ?? [];
-  const venue = venues.find((v) => v.id === draft.venueId) ?? venues[0];
-  const course = venue?.courses.find((c) => c.id === draft.courseId) ?? venue?.courses[0];
-
-  // Default the draft to the first venue/course, as the prototype pre-selects Sandton / The Tropical Trail.
-  // A course id not in the loaded list yet (just created via "Create a new course", list still
-  // refreshing) is left alone so the new course stays selected.
-  const draftCourseKnown = venues.some((v) => v.courses.some((c) => c.id === draft.courseId));
-  useEffect(() => {
-    if (venue && draft.venueId !== venue.id) draft.setVenueId(venue.id);
-    if (course && draft.courseId !== course.id && (draft.courseId === null || draftCourseKnown)) {
-      draft.setCourseId(course.id);
-    }
-    if (venue && !course && draft.courseId !== null) draft.setCourseId(null);
-  }, [venue, course, draft, draftCourseKnown]);
+  // With a single venue there is nothing to choose, so it starts selected.
+  const venue = venues.find((v) => v.id === pickedVenueId) ?? (venues.length === 1 ? venues[0] : undefined);
+  const course = venue?.courses.find((c) => c.id === courseId);
 
   return (
     <View style={styles.screen}>
@@ -54,15 +45,16 @@ export default function SetupScreen() {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <ScrollView contentContainerStyle={{ paddingBottom: NAV_CLEARANCE + insets.bottom }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
         <View style={[styles.header, { paddingTop: Math.max(20, insets.top) }]}>
-          <View style={styles.headerBrand}>
-            <Logo compact style={{ width: 76 }} />
-          </View>
+          <Pressable accessibilityLabel="Back" onPress={() => router.back()} style={styles.roundButton}>
+            <Icon name="back" color="#fff" />
+          </Pressable>
           <View style={{ flex: 1 }}>
             <Eyebrow style={{ marginBottom: 5, color: '#8bcd58' }}>NEW GAME</Eyebrow>
             <Text style={styles.headerTitle}>Choose your course</Text>
           </View>
+          <Logo compact style={{ width: 76 }} />
         </View>
 
         <View style={styles.content}>
@@ -73,10 +65,12 @@ export default function SetupScreen() {
               return (
                 <Pressable
                   key={v.id}
+                  accessibilityRole="radio"
+                  aria-checked={selected}
+                  accessibilityLabel={`Venue ${v.name}`}
                   onPress={() => {
-                    draft.setVenueId(v.id);
-                    draft.setCourseId(v.courses[0]?.id ?? null);
-                    setEditingCourseId(null);
+                    setPickedVenueId(v.id);
+                    if (v.id !== venue?.id) setCourseId(null);
                   }}
                   style={[styles.card, selected && styles.cardSelected]}
                 >
@@ -90,7 +84,10 @@ export default function SetupScreen() {
                   <View style={styles.cardBody}>
                     <Text style={styles.cardKicker}>{BRAND.toUpperCase()}</Text>
                     <Text style={styles.cardTitle}>{v.name}</Text>
-                    {v.address ? <Text style={styles.cardSub}>{v.address}</Text> : null}
+                    <Text style={styles.cardSub}>
+                      {v.courses.length} {v.courses.length === 1 ? 'course' : 'courses'}
+                      {v.address ? ` · ${v.address}` : ''}
+                    </Text>
                   </View>
                   {selected ? (
                     <View style={styles.selectCheck}>
@@ -100,67 +97,69 @@ export default function SetupScreen() {
                 </Pressable>
               );
             })}
+            {data && venues.length === 0 ? (
+              <View style={styles.empty}>
+                <Text style={styles.emptyTitle}>No venues yet</Text>
+                <Text style={styles.emptyCopy}>Add a venue and its courses in the Venues tab first.</Text>
+              </View>
+            ) : null}
           </View>
-          <AddRow label="Create a new venue" onPress={() => router.push('/venue/new')} />
 
-          <StepLabel step={2} label="Select a course" />
-          <View style={{ gap: 10 }}>
-            {venue?.courses.map((c) => {
-              const editing = editingCourseId === c.id;
-              const par = totalPar(c.holes);
-              const lastPlayed = data?.lastPlayed.get(c.id);
-              const selected = c.id === course?.id && (venue?.courses.length ?? 0) > 1;
-              return (
-                <View key={c.id}>
-                  <Pressable
-                    onPress={() => {
-                      draft.setCourseId(c.id);
-                      setEditingCourseId(editing ? null : c.id);
-                    }}
-                    style={[styles.card, selected && styles.cardSelected]}
-                  >
-                    <View style={[styles.cardIcon, { backgroundColor: colors.yellow }]}>
-                      {c.image ? (
-                        <Image source={{ uri: c.image }} style={styles.cardImage} contentFit="cover" />
-                      ) : (
-                        <Icon name="flag" />
-                      )}
-                    </View>
-                    <View style={styles.cardBody}>
-                      <Text style={styles.cardKicker}>{c.holes.length} HOLE COURSE</Text>
-                      <Text style={styles.cardTitle}>{c.name}</Text>
-                      <Text style={styles.cardSub}>
-                        Par {par} · {lastPlayed ? `Last played ${timeAgo(lastPlayed)}` : 'Not played yet'}
-                      </Text>
-                    </View>
-                    <Icon name={editing ? 'close' : 'edit'} size={19} color={colors.green} />
-                  </Pressable>
+          {venue ? (
+            <>
+              <StepLabel step={2} label="Select a course" />
+              <View style={{ gap: 10 }}>
+                {venue.courses.map((c) => {
+                  const selected = c.id === course?.id;
+                  const lastPlayed = data?.lastPlayed.get(c.id);
+                  return (
+                    <Pressable
+                      key={c.id}
+                      accessibilityRole="radio"
+                      aria-checked={selected}
+                      accessibilityLabel={`Course ${c.name}`}
+                      onPress={() => setCourseId(c.id)}
+                      style={[styles.card, selected && styles.cardSelected]}
+                    >
+                      <View style={[styles.cardIcon, { backgroundColor: colors.yellow }]}>
+                        {c.image ? (
+                          <Image source={{ uri: c.image }} style={styles.cardImage} contentFit="cover" />
+                        ) : (
+                          <Icon name="flag" />
+                        )}
+                      </View>
+                      <View style={styles.cardBody}>
+                        <Text style={styles.cardKicker}>{c.holes.length} HOLE COURSE</Text>
+                        <Text style={styles.cardTitle}>{c.name}</Text>
+                        <Text style={styles.cardSub}>
+                          Par {totalPar(c.holes)} · {lastPlayed ? `Last played ${timeAgo(lastPlayed)}` : 'Not played yet'}
+                        </Text>
+                      </View>
+                      {selected ? (
+                        <View style={styles.selectCheck}>
+                          <Icon name="check" size={16} strokeWidth={2.6} color="#fff" />
+                        </View>
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+                {venue.courses.length === 0 ? (
+                  <View style={styles.empty}>
+                    <Text style={styles.emptyTitle}>No courses at {venue.name} yet</Text>
+                    <Text style={styles.emptyCopy}>Add one from the venue in the Venues tab.</Text>
+                  </View>
+                ) : null}
+              </View>
+            </>
+          ) : null}
 
-                  {editing ? (
-                    <ParEditor
-                      pars={c.holes.map((h) => h.par)}
-                      onChange={(index, next) => setHolePar(c.holes[index].id, next)}
-                      onDone={() => setEditingCourseId(null)}
-                    />
-                  ) : null}
-                </View>
-              );
-            })}
-          </View>
-          <AddRow
-            label="Create a new course"
-            onPress={
-              venue
-                ? () => router.push({ pathname: '/course/new', params: { venueId: String(venue.id), select: '1' } })
-                : undefined
-            }
+          <WideCta
+            label="Choose players"
+            disabled={!course}
+            onPress={() => course && router.push({ pathname: '/game/players', params: { courseId: String(course.id) } })}
           />
-
-          <WideCta label="Choose players" disabled={!course} onPress={() => router.push('/players')} />
         </View>
       </ScrollView>
-      {/* New game is a flow started from Home, not a tab: no tab is highlighted. */}
-      <BottomNav />
     </View>
   );
 }
@@ -176,15 +175,6 @@ function StepLabel({ step, label, first }: { step: number; label: string; first?
   );
 }
 
-function AddRow({ label, onPress }: { label: string; onPress?: () => void }) {
-  return (
-    <Pressable accessibilityRole="button" disabled={!onPress} onPress={onPress} style={styles.addRow}>
-      <Icon name="plus" size={18} color={colors.green} />
-      <Text style={styles.addRowText}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
   header: {
@@ -195,14 +185,15 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
     backgroundColor: colors.deep,
   },
-  headerBrand: {
-    width: 68,
-    height: 56,
-    overflow: 'hidden',
+  roundButton: {
+    width: 38,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.07)',
   },
   headerTitle: { color: '#fff', fontFamily: fonts.display, fontSize: 24 },
   content: { paddingTop: 24, paddingHorizontal: 20, paddingBottom: 28 },
@@ -254,14 +245,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.green,
   },
 
-  addRow: {
-    flexDirection: 'row',
-    alignSelf: 'flex-start',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 11,
-    marginLeft: 5,
-    padding: 5,
+  empty: {
+    padding: 15,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#9db09e',
+    borderRadius: 15,
+    backgroundColor: '#f2f5ed',
   },
-  addRowText: { color: colors.green, fontSize: 11, fontFamily: fonts.bodyBold },
+  emptyTitle: { color: colors.ink, fontFamily: fonts.displayBold, fontSize: 14 },
+  emptyCopy: { marginTop: 2, color: '#82908a', fontSize: 10, fontFamily: fonts.body },
 });

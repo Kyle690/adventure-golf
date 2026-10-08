@@ -37,10 +37,18 @@ async function capture(label) {
     await page.waitForTimeout(2500);
     return page.evaluate(() => document.body.innerText);
   };
-  const result = { home: await text(''), crew: await text('crew'), owner: await text('player/1'), alex: await text('player/2') };
+  // The previous build used flat routes (/crew, /player/:id); the new one nests them under the tabs.
+  const routes = label === 'old' ? { crew: 'crew', player: 'player/' } : { crew: 'players', player: 'players/' };
+  const result = {
+    home: await text(''),
+    crew: await text(routes.crew),
+    owner: await text(`${routes.player}1`),
+    alex: await text(`${routes.player}2`),
+  };
   if (label === 'new') {
     result.venues = await text('venues');
-    result.scorecard = await text('scorecard/1');
+    result.history = await text('history');
+    result.complete = await text('game/1/complete');
     result.game = await text('game/2');
   }
   await ctx.close();
@@ -57,12 +65,21 @@ server.kill();
 check(before.home.includes('Resume game') && before.home.includes('24'), 'previous build shows demo data (live round, best 24)');
 for (const key of ['home', 'crew', 'owner', 'alex']) {
   // The new build adds tappable rows etc. but every stat line must be identical.
-  const norm = (s) => s.replace(/\s+/g, ' ').trim();
+  // Layout-only differences are ignored: the crew list now ends with an inline "add a player"
+  // form and player detail now sits inside the Players tab (tab bar visible).
+  const norm = (s) =>
+    s.replace(/\s+/g, ' ').trim().replace(/( Home Venues Players History)$/, '').replace(/ ADD A PLAYER$/, '');
   check(norm(after[key]) === norm(before[key]), `${key}: same content after upgrade`);
-  if (norm(after[key]) !== norm(before[key])) console.log('BEFORE:', norm(before[key]), '\nAFTER: ', norm(after[key]));
+  if (norm(after[key]) !== norm(before[key])) {
+    const [b, a] = [norm(before[key]), norm(after[key])];
+    let i = 0;
+    while (b[i] === a[i]) i++;
+    console.log(`  first difference at ${i}:\n  BEFORE: …${b.slice(i - 60, i + 120)}\n  AFTER:  …${a.slice(i - 60, i + 120)}`);
+  }
 }
 check(/Your best:\s*24\s*\(\u2212?-?5\)/.test(after.venues), 'venues tab: owner best 24 (-5) from migrated scores');
-check(after.scorecard.includes('You win!') && /TOTAL\s+29\s+24\s+31\s+32/.test(after.scorecard), 'score sheet of the migrated game: par 29, totals 24/31/32');
+check(after.complete.includes('You win!') && /TOTAL\s+29\s+24\s+31\s+32/.test(after.complete), 'game complete (review) of the migrated game: par 29, totals 24/31/32');
+check(after.history.includes('The Tropical Trail') && after.history.includes('Sandton'), 'history lists the migrated finished game');
 check(after.game.includes('HOLE') && after.game.includes('05'), 'live round resumes on hole 5 after upgrade');
 console.log(failures ? `${failures} FAILURES` : 'ALL CHECKS PASSED');
 process.exit(failures ? 1 : 0);

@@ -59,7 +59,7 @@ export function ColorSwatches({
             key={color}
             accessibilityRole="radio"
             accessibilityLabel={`Colour ${color}`}
-            accessibilityState={{ selected }}
+            aria-selected={selected}
             onPress={() => onChange(color)}
             style={[styles.swatch, { backgroundColor: color }, selected && styles.swatchSelected, used && styles.swatchUsed]}
           >

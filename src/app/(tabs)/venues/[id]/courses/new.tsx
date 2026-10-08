@@ -7,19 +7,14 @@ import { Text } from '@/components/Text';
 import { WideCta } from '@/components/WideCta';
 import { useDbQuery } from '@/db/hooks';
 import { createCourse, getVenue } from '@/db/queries';
-import { useRoundDraft } from '@/state/round-draft';
 
-/**
- * Add a course to a venue (venue detail "Add a course", New game "Create a new course").
- * `select=1` (from New game) also selects the new course for the round being set up.
- */
+/** Add a course to a venue (venue detail "Add a course"), same form as editing / onboarding. */
 export default function CourseCreateScreen() {
-  const { venueId, select } = useLocalSearchParams<{ venueId: string; select?: string }>();
+  const { id: venueId } = useLocalSearchParams<{ id: string }>();
   const id = Number(venueId);
-  const draft = useRoundDraft();
   const form = useCourseForm(null);
   const { data: venue } = useDbQuery(() => getVenue(id).then((v) => v ?? null), venueId);
-  const back = () => goBackTo(id ? `/venue/${id}` : '/venues');
+  const back = () => goBackTo(id ? `/venues/${id}` : '/venues');
 
   if (venue === undefined) return <View style={courseFormPageStyles.screen} />;
   if (venue === null) {
@@ -33,11 +28,7 @@ export default function CourseCreateScreen() {
 
   const save = () => {
     if (!form.valid) return;
-    const course = createCourse(venue.id, form.values());
-    if (select === '1') {
-      draft.setVenueId(venue.id);
-      draft.setCourseId(course.id);
-    }
+    createCourse(venue.id, form.values());
     back();
   };
 

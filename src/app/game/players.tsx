@@ -1,13 +1,12 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BottomNav, NAV_CLEARANCE } from '@/components/BottomNav';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { AddPlayerForm } from '@/components/AddPlayerForm';
 import { Eyebrow } from '@/components/Eyebrow';
 import { Icon } from '@/components/Icon';
 import { LeafDecoration } from '@/components/LeafDecoration';
@@ -15,21 +14,22 @@ import { Logo } from '@/components/Logo';
 import { PlayerAvatar } from '@/components/PlayerAvatar';
 import { WideCta } from '@/components/WideCta';
 import { useDbQuery } from '@/db/hooks';
-import { addPlayer, listPlayers, listVenues, removePlayer, startGame } from '@/db/queries';
-import type { Player } from '@/db/schema';
-import { nextPlayerColor } from '@/lib/players';
+import { getCourse, listPlayers, startGame } from '@/db/queries';
 import { useRoundDraft } from '@/state/round-draft';
 import { colors, fonts, MAX_PLAYERS } from '@/theme';
 
-export default function PlayersScreen() {
+/**
+ * Game flow step 2: pick who's playing (tap to toggle, add new players; no deleting here) and
+ * start the round on the course passed as ?courseId= (from game/new or a venue's "Play").
+ */
+export default function PickPlayersScreen() {
   const insets = useSafeAreaInsets();
   const draft = useRoundDraft();
-  const [newName, setNewName] = useState('');
-  const [pendingRemoval, setPendingRemoval] = useState<Player | null>(null);
+  const { courseId } = useLocalSearchParams<{ courseId?: string }>();
   const { data } = useDbQuery(async () => {
-    const [players, venues] = await Promise.all([listPlayers(), listVenues()]);
-    return { players, venues };
-  });
+    const [players, course] = await Promise.all([listPlayers(), courseId ? getCourse(Number(courseId)) : undefined]);
+    return { players, course: course ?? null };
+  }, courseId ?? '');
 
   const players = data?.players ?? [];
   // Untouched selection = everyone (the prototype starts with all saved players selected).
@@ -37,9 +37,7 @@ export default function PlayersScreen() {
     players.some((p) => p.id === id),
   );
 
-  // Resolve the course chosen on the setup screen (or the first course if the user came straight here).
-  const allCourses = data?.venues.flatMap((v) => v.courses) ?? [];
-  const course = allCourses.find((c) => c.id === draft.courseId) ?? allCourses[0];
+  const course = data?.course ?? null;
 
   const loadedPlayers = data?.players;
   useEffect(() => {
@@ -52,19 +50,6 @@ export default function PlayersScreen() {
     draft.setSelectedPlayerIds(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
   };
 
-  const add = () => {
-    const name = newName.trim();
-    if (!name || players.length >= MAX_PLAYERS) return;
-    const player = addPlayer(name, nextPlayerColor(players));
-    draft.setSelectedPlayerIds([...selected, player.id]);
-    setNewName('');
-  };
-
-  const remove = (id: number) => {
-    setPendingRemoval(null);
-    removePlayer(id);
-    draft.setSelectedPlayerIds(selected.filter((x) => x !== id));
-  };
 
   const start = () => {
     if (!course || selected.length === 0) return;
@@ -85,14 +70,22 @@ export default function PlayersScreen() {
       />
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingBottom: NAV_CLEARANCE + insets.bottom }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
       >
         <View style={[styles.header, { paddingTop: Math.max(16, insets.top), height: 234 + Math.max(0, insets.top - 16) }]}>
           <LeafDecoration />
-          <Logo compact style={{ marginBottom: 21 }} />
+          <View style={styles.topbar}>
+            <Pressable accessibilityLabel="Back" onPress={() => router.back()} style={styles.roundButton}>
+              <Icon name="back" color="#fff" />
+            </Pressable>
+            <Logo compact />
+            <View style={{ width: 38 }} />
+          </View>
           <Eyebrow style={{ marginBottom: 6, color: '#8dcc58' }}>YOUR CREW</Eyebrow>
           <Text style={styles.title}>Who&apos;s playing?</Text>
-          <Text style={styles.subtitle}>Select up to {MAX_PLAYERS} players for this round.</Text>
+          <Text style={styles.subtitle}>
+            {course ? `${course.name} · ${course.venue.name} · ${course.holes.length} holes` : `Select up to ${MAX_PLAYERS} players.`}
+          </Text>
         </View>
 
         <View style={styles.content}>
@@ -109,7 +102,8 @@ export default function PlayersScreen() {
               return (
                 <Pressable
                   accessibilityRole="checkbox"
-                  accessibilityState={{ checked: isSelected }}
+                  accessibilityLabel={player.name}
+                  aria-checked={isSelected}
                   key={player.id}
                   onPress={() => toggle(player.id)}
                   style={[styles.row, isSelected && styles.rowSelected]}
@@ -119,16 +113,6 @@ export default function PlayersScreen() {
                     <Text style={styles.nameText}>{player.name}</Text>
                     <Text style={styles.role}>{player.isOwner ? 'Scorekeeper' : 'Player'}</Text>
                   </View>
-                  {!player.isOwner ? (
-                    <Pressable
-                      accessibilityLabel={`Remove ${player.name}`}
-                      hitSlop={6}
-                      onPress={() => setPendingRemoval(player)}
-                      style={styles.remove}
-                    >
-                      <Icon name="trash" size={17} color="#a6aea9" />
-                    </Pressable>
-                  ) : null}
                   <View style={[styles.check, isSelected && styles.checkSelected]}>
                     {isSelected ? <Icon name="check" size={15} strokeWidth={2.8} color="#fff" /> : null}
                   </View>
@@ -137,23 +121,13 @@ export default function PlayersScreen() {
             })}
           </View>
 
-          {players.length < MAX_PLAYERS ? (
-            <View style={styles.addForm}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.addLabel}>ADD A PLAYER</Text>
-                <TextInput
-                  accessibilityLabel="Player name"
-                  value={newName}
-                  onChangeText={setNewName}
-                  onSubmitEditing={add}
-                  placeholder="Enter their name"
-                  placeholderTextColor="#9aa59f"
-                  returnKeyType="done"
-                  style={styles.input}
-                />
-              </View>
-              <Pressable accessibilityLabel="Add player" onPress={add} style={styles.addButton}>
-                <Icon name="plus" color="#fff" />
+          <AddPlayerForm players={players} onAdded={(player) => draft.setSelectedPlayerIds([...selected, player.id])} />
+
+          {data && !course ? (
+            <View style={styles.noCourse}>
+              <Text style={styles.noCourseText}>Pick a venue and course first.</Text>
+              <Pressable accessibilityRole="button" onPress={() => router.replace('/game/new')}>
+                <Text style={styles.noCourseLink}>Choose a course</Text>
               </Pressable>
             </View>
           ) : null}
@@ -161,17 +135,6 @@ export default function PlayersScreen() {
           <WideCta label="Start the round" disabled={selected.length === 0 || !course} onPress={start} />
         </View>
       </ScrollView>
-      {/* New game is a flow started from Home, not a tab: no tab is highlighted. */}
-      <BottomNav />
-      <ConfirmDialog
-        visible={pendingRemoval !== null}
-        title={`Remove ${pendingRemoval?.name ?? 'player'}?`}
-        message={`${pendingRemoval?.name ?? 'This player'} and all of their scores will be removed, including past rounds. This action can't be undone.`}
-        confirmLabel="Yes, remove player"
-        cancelLabel="No, keep them"
-        onConfirm={() => pendingRemoval && remove(pendingRemoval.id)}
-        onCancel={() => setPendingRemoval(null)}
-      />
     </View>
   );
 }
@@ -200,7 +163,6 @@ const styles = StyleSheet.create({
   name: { flex: 1 },
   nameText: { color: colors.ink, fontFamily: fonts.displayBold, fontSize: 14 },
   role: { marginTop: 2, color: '#8c9992', fontSize: 9, fontFamily: fonts.body },
-  remove: { padding: 7 },
   check: {
     width: 23,
     height: 23,
@@ -211,35 +173,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   checkSelected: { borderColor: colors.green, backgroundColor: colors.green },
-  addForm: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 9,
-    marginTop: 13,
-    padding: 13,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: '#9db09e',
-    borderRadius: 15,
-    backgroundColor: '#f2f5ed',
-  },
-  addLabel: { marginBottom: 5, color: '#75837b', fontSize: 8, fontFamily: fonts.bodyBold, letterSpacing: 1.2 },
-  input: {
-    paddingVertical: 7,
-    paddingHorizontal: 0,
-    color: colors.ink,
-    fontSize: 12,
-    fontFamily: fonts.body,
-    borderBottomWidth: 1,
-    borderBottomColor: '#c8d1c6',
-    outlineStyle: 'none',
-  } as object,
-  addButton: {
-    width: 39,
-    height: 39,
+  topbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 21 },
+  roundButton: {
+    width: 38,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 11,
-    backgroundColor: colors.green,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.07)',
   },
+  noCourse: { alignItems: 'center', gap: 4, marginTop: 14 },
+  noCourseText: { color: '#82908a', fontSize: 11, fontFamily: fonts.body },
+  noCourseLink: { color: colors.green, fontSize: 12, fontFamily: fonts.bodyBold },
 });

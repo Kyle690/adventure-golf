@@ -158,11 +158,6 @@ export async function lastPlayedByCourse() {
 // Writes (synchronous expo-sqlite driver; transactions use the sync API)
 // ---------------------------------------------------------------------------
 
-export function setHolePar(holeId: number, par: number) {
-  db.update(holes).set({ par }).where(eq(holes.id, holeId)).run();
-  notifyDbChanged();
-}
-
 export function addPlayer(name: string, avatar: string) {
   const player = db.insert(players).values({ name, avatar, isOwner: false }).returning().get();
   notifyDbChanged();
@@ -197,6 +192,15 @@ export function updatePlayer(
   const player = db.update(players).set(values).where(eq(players.id, id)).returning().get();
   notifyDbChanged();
   return player;
+}
+
+/** History tab: every finished game, most recently finished first. */
+export function listCompletedGames() {
+  return db.query.games.findMany({
+    where: eq(games.status, 'completed'),
+    with: gameDetail,
+    orderBy: [desc(games.completedAt), desc(games.id)],
+  });
 }
 
 /** Every non-abandoned game with full detail, newest first (stats are computed in JS). */

@@ -3,6 +3,7 @@ import type { PropsWithChildren } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { NAV_CLEARANCE } from '@/components/BottomNav';
 import { Eyebrow } from '@/components/Eyebrow';
 import { Icon } from '@/components/Icon';
 import { LeafDecoration } from '@/components/LeafDecoration';
@@ -10,9 +11,10 @@ import { Logo } from '@/components/Logo';
 import { Text } from '@/components/Text';
 import { colors, fonts } from '@/theme';
 
-export function goBackTo(fallback: '/venues' | `/venue/${number}`) {
-  if (router.canGoBack()) router.back();
-  else router.replace(fallback);
+export function goBackTo(target: '/venues' | `/venues/${number}`) {
+  // Pops back to the target if it is underneath (the usual case); after a deep link straight to a
+  // course form it replaces the form with the target, which has the venues list beneath it.
+  router.dismissTo(target);
 }
 
 /** Header + scroll shell shared by the course create and edit screens. */
@@ -29,7 +31,7 @@ export function CourseFormPage({
       <ScrollView
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
-        contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+        contentContainerStyle={{ paddingBottom: NAV_CLEARANCE + insets.bottom }}
       >
         <View style={[styles.header, { paddingTop: Math.max(16, insets.top) }]}>
           <LeafDecoration />

@@ -116,7 +116,7 @@ export function CourseFormFields({ form, previewSub = 'Not played yet' }: { form
 
         <Pressable
           accessibilityRole="button"
-          accessibilityState={{ expanded: showDetails }}
+          aria-expanded={showDetails}
           onPress={() => setShowDetails((v) => !v)}
           style={styles.detailsToggle}
         >
@@ -163,7 +163,7 @@ export function CourseFormFields({ form, previewSub = 'Not played yet' }: { form
                           <Pressable
                             key={level}
                             accessibilityRole="radio"
-                            accessibilityState={{ selected }}
+                            aria-selected={selected}
                             accessibilityLabel={`Hole ${index + 1} ${DIFFICULTY_LABEL[level]}`}
                             onPress={() => updateHole(index, { difficulty: selected ? null : level })}
                             style={[styles.chip, selected && styles.chipSelected]}

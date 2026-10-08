@@ -140,7 +140,7 @@ check(await page.getByText('No finished rounds yet').last().isVisible(), 'home l
 await page.reload({ waitUntil: 'networkidle' });
 await settle(1500);
 check(!page.url().includes('onboarding'), 'reload stays on Home after onboarding');
-await page.goto(URL + 'setup', { waitUntil: 'networkidle' });
+await page.goto(URL + 'game/new', { waitUntil: 'networkidle' });
 await shot('onboarding-08-setup-with-photos', 1200);
 await ctx.close();
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
 import { FieldCard, ImageField, TextField } from '@/components/onboarding/Form';
@@ -7,19 +7,8 @@ import { StepPage } from '@/components/onboarding/StepPage';
 import { Text } from '@/components/Text';
 import { WideCta } from '@/components/WideCta';
 import { saveVenue, type OnboardingState } from '@/db/queries';
-import { pickLocalImage } from '@/lib/images';
+import { pickImageSafely } from '@/lib/images';
 import { colors, fonts } from '@/theme';
-
-export async function pickImageSafely(setUri: (uri: string) => void) {
-  try {
-    const uri = await pickLocalImage();
-    if (uri) setUri(uri);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (Platform.OS === 'web') console.warn('Image pick failed', message);
-    else Alert.alert('Could not add photo', message);
-  }
-}
 
 export function VenueStep({
   state,

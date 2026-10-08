@@ -1,6 +1,6 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 /**
  * Lets the user pick a photo and returns a URI that stays valid offline:
@@ -8,11 +8,11 @@ import { Platform } from 'react-native';
  * - Web: there is no app sandbox, so the image is kept as a data: URI.
  * Returns null when the user cancels.
  */
-export async function pickLocalImage(): Promise<string | null> {
+export async function pickLocalImage(aspect: [number, number] = [16, 9]): Promise<string | null> {
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
     allowsEditing: true,
-    aspect: [16, 9],
+    aspect,
     quality: 0.7,
     base64: Platform.OS === 'web',
   });
@@ -29,4 +29,16 @@ export async function pickLocalImage(): Promise<string | null> {
   const destination = new File(dir, `${Date.now()}-${Math.round(Math.random() * 1e6)}.${extension}`);
   await new File(asset.uri).copy(destination);
   return destination.uri;
+}
+
+/** pickLocalImage that reports failures (permission denied, copy error) instead of throwing. */
+export async function pickImageSafely(setUri: (uri: string) => void, aspect?: [number, number]) {
+  try {
+    const uri = await pickLocalImage(aspect);
+    if (uri) setUri(uri);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (Platform.OS === 'web') console.warn('Image pick failed', message);
+    else Alert.alert('Could not add photo', message);
+  }
 }

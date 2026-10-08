@@ -72,8 +72,10 @@ export const players = sqliteTable(
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
     name: text('name').notNull(),
-    /** Local asset key, emoji/initials, or file URI. */
+    /** Avatar colour (hex) used for the initial bubble. */
     avatar: text('avatar'),
+    /** Optional profile photo: local file URI (native) or data: URI (web). Shown instead of the bubble. */
+    photo: text('photo'),
     handicap: integer('handicap'),
     /** Marks the app's main user. At most one row may be true (partial unique index). */
     isOwner: integer('is_owner', { mode: 'boolean' }).notNull().default(false),

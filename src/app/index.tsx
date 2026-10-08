@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -177,7 +178,11 @@ function LiveGameCard({ game }: { game: GameDetail }) {
         <View style={styles.livePlayers}>
           {game.gamePlayers.map(({ player }, i) => (
             <View key={player.id} style={[styles.livePlayer, { backgroundColor: playerColor(player, i) }]}>
-              <Text style={styles.livePlayerText}>{player.name.slice(0, 1)}</Text>
+              {player.photo ? (
+                <Image source={{ uri: player.photo }} style={styles.livePlayerPhoto} contentFit="cover" />
+              ) : (
+                <Text style={styles.livePlayerText}>{player.name.slice(0, 1)}</Text>
+              )}
             </View>
           ))}
           <Text style={styles.livePlayersCount}>{game.gamePlayers.length} players</Text>
@@ -338,7 +343,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#fff',
     borderRadius: 13,
+    overflow: 'hidden',
   },
+  livePlayerPhoto: { width: '100%', height: '100%' },
   livePlayerText: { color: '#fff', fontFamily: fonts.display, fontSize: 9 },
   livePlayersCount: { marginLeft: 12, color: '#7f8e86', fontSize: 8, fontFamily: fonts.body },
   resumeButton: {

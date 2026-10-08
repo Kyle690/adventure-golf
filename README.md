@@ -30,12 +30,16 @@ src/app/              Expo Router screens
   onboarding/index.tsx  first-run carousel: owner -> venue -> course -> crew (reanimated pager)
   onboarding/complete.tsx  celebration screen (confetti, bouncing ball) -> Home
   setup.tsx           New game: venue, course, per-hole par editor
-  players.tsx         Who's playing: select / add / remove players, start the round
+  players.tsx         Who's playing: select (check) / add / remove players, start the round;
+                      tapping a row opens the player screen
+  player/[id].tsx     Player detail: stats, edit (name, colour, photo, handicap), recent
+                      rounds, remove (non-owner, with confirmation)
   game/[id].tsx       Live scoring: hole carousel, steppers, scoreboard, round options
 src/components/       Icon (prototype SVG paths), Logo, LeafDecoration, GolfBall, BottomNav,
                       RoundMenu (bottom sheet + quit confirm), PlayerAvatar, WideCta, Eyebrow, Text,
-                      ParEditor (shared by Setup and onboarding)
+                      ParEditor (shared by Setup and onboarding), ConfirmDialog
   onboarding/         StepPage, StepDots, Form fields, Confetti, BouncingBall, steps/*
+src/lib/stats.ts      per-player stats (rounds, wins, best, avg/hole, holes-in-one, recent)
 src/lib/images.ts     image picker -> copy into documentDirectory/images (data: URI on web)
 src/db/
   schema.ts           Drizzle schema + relations
@@ -47,15 +51,17 @@ src/db/
 drizzle/              generated SQL migrations (bundled via babel-plugin-inline-import)
 patches/              expo-sqlite web fixes (see below)
 scripts/              serve-web.mjs, screenshots.mjs (prototype vs app, needs a demo build),
-                      onboarding-screenshots.mjs (fresh DB walkthrough + checks)
-screenshots/          prototype-*.png vs app-*.png, onboarding-*.png
+                      onboarding-screenshots.mjs (fresh DB walkthrough + checks),
+                      players-screenshots.mjs (player edit/delete on a demo build + checks)
+screenshots/          prototype-*.png vs app-*.png, onboarding-*.png, players-*.png
 ```
 
 ## Database
 
 Tables: `venues`, `courses`, `holes`, `players` (one `is_owner`, enforced by a partial unique
-index), `games`, `game_players` (turn order), `scores` (unique per game/player/hole), `app_meta`.
-All FKs cascade on delete. Change `src/db/schema.ts`, then `npm run db:generate`.
+index; `avatar` = colour, optional `photo` URI), `games`, `game_players` (turn order), `scores` (unique per game/player/hole), `app_meta`.
+All FKs cascade on delete (removing a player deletes their scores, and any game left with no
+players). Change `src/db/schema.ts`, then `npm run db:generate`.
 
 ## Onboarding
 

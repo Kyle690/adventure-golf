@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -225,7 +226,11 @@ export default function GameScreen() {
               <View key={player.id} style={styles.leaderRow}>
                 <Text style={styles.leaderRank}>{index + 1}</Text>
                 <View style={[styles.leaderAvatar, { backgroundColor: playerColor(player, index) }]}>
-                  <Text style={styles.leaderAvatarText}>{player.name.slice(0, 1)}</Text>
+                  {player.photo ? (
+                    <Image source={{ uri: player.photo }} style={styles.leaderPhoto} contentFit="cover" />
+                  ) : (
+                    <Text style={styles.leaderAvatarText}>{player.name.slice(0, 1)}</Text>
+                  )}
                 </View>
                 <Text style={styles.leaderName}>{player.name}</Text>
                 <Text style={styles.leaderTotal}>{totals[index] || '–'}</Text>
@@ -396,7 +401,15 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.1)',
   },
   leaderRank: { width: 12, color: '#91a5a5', fontSize: 9, fontFamily: fonts.body },
-  leaderAvatar: { width: 27, height: 27, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
+  leaderAvatar: {
+    width: 27,
+    height: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderRadius: 14,
+  },
+  leaderPhoto: { width: '100%', height: '100%' },
   leaderAvatarText: { color: '#fff', fontSize: 10, fontFamily: fonts.body },
   leaderName: { flex: 1, color: '#fff', fontSize: 11, fontFamily: fonts.bodyBold },
   leaderTotal: { color: colors.yellow, fontFamily: fonts.displayBold, fontSize: 16 },

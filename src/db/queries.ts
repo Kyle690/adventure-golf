@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, max } from 'drizzle-orm';
+import { and, asc, count, desc, eq, max, ne, notExists } from 'drizzle-orm';
 
 import { db } from './client';
 import { notifyDbChanged } from './events';
@@ -109,12 +109,43 @@ export function addPlayer(name: string, avatar: string) {
   return player;
 }
 
-/** Removes a crew member (never the owner). Cascades to their game entries and scores. */
+/**
+ * Removes a crew member (never the owner). Cascades to their game entries and scores; any game
+ * left with no players at all is deleted too.
+ */
 export function removePlayer(id: number) {
-  db.delete(players)
-    .where(and(eq(players.id, id), eq(players.isOwner, false)))
-    .run();
+  db.transaction((tx) => {
+    tx.delete(players)
+      .where(and(eq(players.id, id), eq(players.isOwner, false)))
+      .run();
+    tx.delete(games)
+      .where(notExists(tx.select().from(gamePlayers).where(eq(gamePlayers.gameId, games.id))))
+      .run();
+  });
   notifyDbChanged();
+}
+
+export function getPlayer(id: number) {
+  return db.query.players.findFirst({ where: eq(players.id, id) });
+}
+
+/** Edits a player (owner included). `isOwner` is never changed here. */
+export function updatePlayer(
+  id: number,
+  values: { name: string; avatar: string; photo: string | null; handicap: number | null },
+) {
+  const player = db.update(players).set(values).where(eq(players.id, id)).returning().get();
+  notifyDbChanged();
+  return player;
+}
+
+/** Every non-abandoned game with full detail, newest first (stats are computed in JS). */
+export function listGamesForStats() {
+  return db.query.games.findMany({
+    where: ne(games.status, 'abandoned'),
+    with: gameDetail,
+    orderBy: [desc(games.startedAt), desc(games.id)],
+  });
 }
 
 /**

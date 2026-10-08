@@ -7,6 +7,7 @@ import { Text } from '@/components/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomNav, NAV_CLEARANCE } from '@/components/BottomNav';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Eyebrow } from '@/components/Eyebrow';
 import { Icon } from '@/components/Icon';
 import { LeafDecoration } from '@/components/LeafDecoration';
@@ -14,8 +15,10 @@ import { Logo } from '@/components/Logo';
 import { PlayerAvatar } from '@/components/PlayerAvatar';
 import { WideCta } from '@/components/WideCta';
 import { useDbQuery } from '@/db/hooks';
-import { addPlayer, listPlayers, listVenues, removePlayer, startGame } from '@/db/queries';
+import { addPlayer, listGamesForStats, listPlayers, listVenues, removePlayer, startGame } from '@/db/queries';
+import type { Player } from '@/db/schema';
 import { nextPlayerColor } from '@/lib/players';
+import { playerStats } from '@/lib/stats';
 import { useRoundDraft } from '@/state/round-draft';
 import { colors, fonts, MAX_PLAYERS } from '@/theme';
 
@@ -23,9 +26,11 @@ export default function PlayersScreen() {
   const insets = useSafeAreaInsets();
   const draft = useRoundDraft();
   const [newName, setNewName] = useState('');
+  const [pendingRemoval, setPendingRemoval] = useState<Player | null>(null);
   const { data } = useDbQuery(async () => {
-    const [players, venues] = await Promise.all([listPlayers(), listVenues()]);
-    return { players, venues };
+    const [players, venues, games] = await Promise.all([listPlayers(), listVenues(), listGamesForStats()]);
+    const stats = new Map(players.map((p) => [p.id, playerStats(p.id, games, 0)]));
+    return { players, venues, stats };
   });
 
   const players = data?.players ?? [];
@@ -58,8 +63,17 @@ export default function PlayersScreen() {
   };
 
   const remove = (id: number) => {
+    setPendingRemoval(null);
     removePlayer(id);
     draft.setSelectedPlayerIds(selected.filter((x) => x !== id));
+  };
+
+  const roleLine = (player: Player) => {
+    const stats = data?.stats.get(player.id);
+    const parts = [player.isOwner ? 'Scorekeeper' : 'Player'];
+    if (stats?.rounds) parts.push(`${stats.rounds} ${stats.rounds === 1 ? 'round' : 'rounds'}`);
+    if (stats?.best) parts.push(`best ${stats.best.total}`);
+    return parts.join(' · ');
   };
 
   const start = () => {
@@ -103,31 +117,39 @@ export default function PlayersScreen() {
             {players.map((player, index) => {
               const isSelected = selected.includes(player.id);
               return (
+                // Tapping the row opens the player's detail/edit screen; the check toggles selection.
                 <Pressable
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: isSelected }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${player.name}, open player details`}
                   key={player.id}
-                  onPress={() => toggle(player.id)}
+                  onPress={() => router.push(`/player/${player.id}`)}
                   style={[styles.row, isSelected && styles.rowSelected]}
                 >
                   <PlayerAvatar player={player} index={index} />
                   <View style={styles.name}>
                     <Text style={styles.nameText}>{player.name}</Text>
-                    <Text style={styles.role}>{player.isOwner ? 'Scorekeeper' : 'Player'}</Text>
+                    <Text style={styles.role}>{roleLine(player)}</Text>
                   </View>
                   {!player.isOwner ? (
                     <Pressable
                       accessibilityLabel={`Remove ${player.name}`}
                       hitSlop={6}
-                      onPress={() => remove(player.id)}
+                      onPress={() => setPendingRemoval(player)}
                       style={styles.remove}
                     >
                       <Icon name="trash" size={17} color="#a6aea9" />
                     </Pressable>
                   ) : null}
-                  <View style={[styles.check, isSelected && styles.checkSelected]}>
+                  <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityLabel={`Select ${player.name} for this round`}
+                    accessibilityState={{ checked: isSelected }}
+                    hitSlop={10}
+                    onPress={() => toggle(player.id)}
+                    style={[styles.check, isSelected && styles.checkSelected]}
+                  >
                     {isSelected ? <Icon name="check" size={15} strokeWidth={2.8} color="#fff" /> : null}
-                  </View>
+                  </Pressable>
                 </Pressable>
               );
             })}
@@ -158,6 +180,15 @@ export default function PlayersScreen() {
         </View>
       </ScrollView>
       <BottomNav active="players" />
+      <ConfirmDialog
+        visible={pendingRemoval !== null}
+        title={`Remove ${pendingRemoval?.name ?? 'player'}?`}
+        message={`${pendingRemoval?.name ?? 'This player'} and all of their scores will be removed, including past rounds. This action can't be undone.`}
+        confirmLabel="Yes, remove player"
+        cancelLabel="No, keep them"
+        onConfirm={() => pendingRemoval && remove(pendingRemoval.id)}
+        onCancel={() => setPendingRemoval(null)}
+      />
     </View>
   );
 }

@@ -3,11 +3,11 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
 import { FieldCard, FieldLabel, formStyles, ImageField, Stepper, TextField } from '@/components/onboarding/Form';
-import { pickImageSafely } from '@/components/onboarding/steps/VenueStep';
 import { StepPage } from '@/components/onboarding/StepPage';
 import { ParEditor } from '@/components/ParEditor';
 import { Text } from '@/components/Text';
 import { WideCta } from '@/components/WideCta';
+import { pickImageSafely } from '@/lib/images';
 import { saveCourse, type HoleInput, type OnboardingState } from '@/db/queries';
 import { DIFFICULTY_LEVELS, type Difficulty } from '@/db/schema';
 import { colors, fonts } from '@/theme';

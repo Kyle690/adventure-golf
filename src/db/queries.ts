@@ -398,6 +398,17 @@ export function saveCourse(values: {
   return course;
 }
 
+/** Adds a course with its holes to an existing venue (venue detail / New game). */
+export function createCourse(venueId: number, values: { name: string; image: string | null; holes: HoleInput[] }) {
+  const course = db.transaction((tx) => {
+    const row = tx.insert(courses).values({ venueId, name: values.name, image: values.image }).returning().get();
+    writeHoles(tx, row.id, values.holes);
+    return row;
+  });
+  notifyDbChanged();
+  return course;
+}
+
 /** Course edit screen: name, photo and hole layout (in place, see writeHoles). */
 export function updateCourse(id: number, values: { name: string; image: string | null; holes: HoleInput[] }) {
   db.transaction((tx) => {

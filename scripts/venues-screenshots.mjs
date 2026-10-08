@@ -109,6 +109,28 @@ await page.waitForURL(/\/venue\/\d+$/);
 await settle(800);
 
 // Live game -> continue, score the remaining holes, Finish round -> confirmation sheet.
+// Add a course from the venue detail (shared course form in create mode).
+await page.getByLabel('Add a course', { exact: true }).last().click();
+await page.waitForURL(/\/course\/new\?venueId=\d+/);
+await settle(800);
+check(await visible('NEW COURSE · SANDTON'), 'create form is for the venue');
+await page.getByLabel('COURSE NAME').fill('Jungle Run');
+for (let i = 0; i < 3; i++) await page.getByLabel('Fewer holes').click();
+await page.getByLabel('Increase hole 1 par').click();
+await page.getByLabel('Decrease hole 5 par').click();
+check(await visible('Par 18'), 'create form totals par for 6 holes');
+await shot('venues-07-add-course', 600);
+await page.getByText('Create course', { exact: true }).click();
+await page.waitForURL(/\/venue\/\d+$/);
+await settle(1200);
+check(await visible('Jungle Run'), 'new course appears on the venue detail');
+check(await visible('6 HOLE COURSE'), 'new course shows its hole count');
+check(await visible('2 courses'), 'courses section counts the new course');
+check(await page.getByText(/2 courses · 14 holes/).isVisible(), 'venue header totals courses and holes');
+await scrollTo('Courses');
+await shot('venues-08-course-added', 600);
+await page.evaluate(() => window.scrollTo(0, 0));
+
 // The live round was started before the edit, so it keeps its 9-hole snapshot too.
 await page.getByLabel('The Tropical Trail, live round, continue').click();
 await page.waitForURL(/\/game\/\d+$/);
@@ -141,6 +163,28 @@ await page.getByLabel(/^Last game: .* Open scorecard$/).click();
 await page.waitForURL(/\/scorecard\/\d+$/);
 await settle(800);
 check(await visible('FINAL SCORECARD'), 'last-game card opens the score sheet');
+
+// New game: "Create a new course" uses the same create flow and selects the new course.
+await page.goto(URL, { waitUntil: 'networkidle' });
+await settle(2000);
+await page.getByText('Start a new game', { exact: true }).click();
+await page.waitForURL(/\/setup$/);
+await settle(800);
+await page.getByText('Create a new course', { exact: true }).click();
+await page.waitForURL(/\/course\/new\?venueId=\d+&select=1/);
+await settle(600);
+await page.getByLabel('COURSE NAME').fill('Pirate Cove');
+await page.getByText('Create course', { exact: true }).click();
+await page.waitForURL(/\/setup$/);
+await settle(1000);
+check(await visible('Pirate Cove'), 'setup lists the course created from New game');
+await page.getByText('Choose players', { exact: true }).click();
+await page.waitForURL(/\/players$/);
+await settle(800);
+await page.getByText('Start the round', { exact: true }).click();
+await page.waitForURL(/\/game\/\d+$/);
+await settle(1200);
+check(await page.getByText('Pirate Cove', { exact: true }).last().isVisible(), 'new course is selected: the round starts on Pirate Cove');
 
 // Fresh install, Venues tab -> empty state.
 await page.goto(FRESH_URL + 'venues', { waitUntil: 'networkidle' });

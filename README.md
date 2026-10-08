@@ -33,8 +33,10 @@ src/app/              Expo Router screens
   venues.tsx          Venues tab: venue cards (photo, address, courses / games / last played,
                       your best), sort by name / most played / recent, empty state, add venue
   venue/new.tsx       Add a venue (name, address, photo)
-  venue/[id].tsx      Venue detail: stats, courses (tap = edit, Play = start a round there) and
-                      every game played there (all courses), newest first
+  venue/[id].tsx      Venue detail: stats, courses (tap = edit, Play = start a round there),
+                      "Add a course", and every game played there (all courses), newest first
+  course/new.tsx      Add a course to a venue (?venueId=; select=1 from New game also selects
+                      it for the round), same CourseForm in create mode
   course/[id].tsx     Course edit: name, photo, hole count, par per hole, length/difficulty
                       (shared CourseForm with onboarding); applies to future games only
   scorecard/[id].tsx  Read-only score sheet: hole x player grid, totals, vs par, winner column
@@ -130,6 +132,8 @@ everywhere. Lists always show the calculated value.
 
 ## Venues, score sheet, finishing a round
 
+- Courses: venue detail's "Add a course" card and New game's "Create a new course" open
+  `/course/new` for that venue; `createCourse()` writes the course and holes in one transaction.
 - Bottom nav: Home, Venues (`/venues`), Players (`/crew`); History still goes to Home and is never
   highlighted. New game (`/setup` -> `/players`) is a flow started from Home, not a tab, so no tab
   is highlighted there. Home's Venues / Players shortcuts open the same tab screens.
@@ -143,8 +147,7 @@ everywhere. Lists always show the calculated value.
   missing-hole warning). "Confirm result" sets status=completed and completedAt=now (only for a
   live round), then resets the stack to Home, so back can't reopen the round.
 
-Not done yet: adding a course to an existing venue outside onboarding, editing/deleting venues,
-deleting courses.
+Not done yet: editing/deleting venues, deleting courses.
 
 ## Onboarding
 

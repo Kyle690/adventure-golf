@@ -34,11 +34,16 @@ export default function SetupScreen() {
   const course = venue?.courses.find((c) => c.id === draft.courseId) ?? venue?.courses[0];
 
   // Default the draft to the first venue/course, as the prototype pre-selects Sandton / The Tropical Trail.
+  // A course id not in the loaded list yet (just created via "Create a new course", list still
+  // refreshing) is left alone so the new course stays selected.
+  const draftCourseKnown = venues.some((v) => v.courses.some((c) => c.id === draft.courseId));
   useEffect(() => {
     if (venue && draft.venueId !== venue.id) draft.setVenueId(venue.id);
-    if (course && draft.courseId !== course.id) draft.setCourseId(course.id);
+    if (course && draft.courseId !== course.id && (draft.courseId === null || draftCourseKnown)) {
+      draft.setCourseId(course.id);
+    }
     if (venue && !course && draft.courseId !== null) draft.setCourseId(null);
-  }, [venue, course, draft]);
+  }, [venue, course, draft, draftCourseKnown]);
 
   return (
     <View style={styles.screen}>
@@ -142,8 +147,14 @@ export default function SetupScreen() {
               );
             })}
           </View>
-          {/* Present but not wired up in the prototype either (adding courses outside onboarding is TODO). */}
-          <AddRow label="Create a new course" />
+          <AddRow
+            label="Create a new course"
+            onPress={
+              venue
+                ? () => router.push({ pathname: '/course/new', params: { venueId: String(venue.id), select: '1' } })
+                : undefined
+            }
+          />
 
           <WideCta label="Choose players" disabled={!course} onPress={() => router.push('/players')} />
         </View>

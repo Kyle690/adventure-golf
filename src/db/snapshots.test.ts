@@ -220,3 +220,24 @@ describe('course edits never change past games', () => {
     assert.equal(nextGame.courseName, 'Tropical Trail (new layout)');
   });
 });
+
+describe('createCourse', () => {
+  it('adds a course with its holes to a venue and shows up in the venue summary', async () => {
+    const sqlite = new SQL.Database();
+    upgrade(sqlite);
+    open(sqlite);
+    const venue = q.createVenue({ name: 'Sandton', address: null, image: null });
+    const course = q.createCourse(venue.id, {
+      name: 'Jungle Run',
+      image: null,
+      holes: [3, 4, 2, 3, 3, 3].map((par) => ({ par, length: null, difficulty: null })),
+    });
+    const summary = (await q.loadVenueSummary(venue.id))!;
+    assert.equal(summary.courseCount, 1);
+    assert.deepEqual(
+      summary.courses.map((c) => ({ name: c.name, holes: c.holes, par: c.par, games: c.gamesPlayed })),
+      [{ name: 'Jungle Run', holes: 6, par: 18, games: 0 }],
+    );
+    assert.equal((await q.getCourse(course.id))!.holes.map((h) => h.number).join(','), '1,2,3,4,5,6');
+  });
+});

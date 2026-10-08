@@ -112,18 +112,30 @@ export default function VenueScreen() {
           </View>
 
           <SectionTitle aside={`${venue.courseCount} ${venue.courseCount === 1 ? 'course' : 'courses'}`}>Courses</SectionTitle>
-          {venue.courses.length ? (
-            <View style={{ gap: 10 }}>
-              {venue.courses.map((course) => (
-                <CourseCard key={course.id} course={course} names={data.names} onPlay={() => play(course.id)} />
-              ))}
-            </View>
-          ) : (
-            <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>No courses yet</Text>
-              <Text style={styles.emptyCopy}>Adding courses to a venue outside onboarding is coming in a later update.</Text>
-            </View>
-          )}
+          <View style={{ gap: 10 }}>
+            {venue.courses.map((course) => (
+              <CourseCard key={course.id} course={course} names={data.names} onPlay={() => play(course.id)} />
+            ))}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add a course"
+              onPress={() => router.push({ pathname: '/course/new', params: { venueId: String(venue.id) } })}
+              style={({ pressed }) => [styles.addCourse, pressed && { opacity: 0.75 }]}
+            >
+              <View style={styles.addCourseIcon}>
+                <Icon name="plus" size={20} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.emptyTitle}>{venue.courses.length ? 'Add a course' : 'No courses yet'}</Text>
+                <Text style={styles.emptyCopy}>
+                  {venue.courses.length
+                    ? `Another layout at ${venue.name}? Set its holes and pars.`
+                    : 'Add a course to start playing here: name, holes and par for each.'}
+                </Text>
+              </View>
+              <Icon name="chevron" size={16} color={colors.green} />
+            </Pressable>
+          </View>
 
           <SectionTitle aside={`${data.games.length} ${data.games.length === 1 ? 'game' : 'games'}`}>Games played here</SectionTitle>
           {data.games.length ? (
@@ -317,6 +329,25 @@ const styles = StyleSheet.create({
     borderColor: '#9db09e',
     borderRadius: 15,
     backgroundColor: '#f2f5ed',
+  },
+  addCourse: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 13,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#9db09e',
+    borderRadius: 15,
+    backgroundColor: '#f2f5ed',
+  },
+  addCourseIcon: {
+    width: 45,
+    height: 45,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 13,
+    backgroundColor: colors.green,
   },
   emptyTitle: { color: colors.ink, fontFamily: fonts.displayBold, fontSize: 14 },
   emptyCopy: { color: '#8c9992', fontSize: 10, fontFamily: fonts.body },

@@ -161,8 +161,8 @@ export default function PlayersScreen() {
           <WideCta label="Start the round" disabled={selected.length === 0 || !course} onPress={start} />
         </View>
       </ScrollView>
-      {/* Picking players is step 2 of New game (Venues tab); the Players tab is the crew list. */}
-      <BottomNav active="setup" />
+      {/* New game is a flow started from Home, not a tab: no tab is highlighted. */}
+      <BottomNav />
       <ConfirmDialog
         visible={pendingRemoval !== null}
         title={`Remove ${pendingRemoval?.name ?? 'player'}?`}

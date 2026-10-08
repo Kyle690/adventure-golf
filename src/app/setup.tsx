@@ -96,8 +96,7 @@ export default function SetupScreen() {
               );
             })}
           </View>
-          {/* Present but not wired up in the prototype either. */}
-          <AddRow label="Create a new venue" />
+          <AddRow label="Create a new venue" onPress={() => router.push('/venue/new')} />
 
           <StepLabel step={2} label="Select a course" />
           <View style={{ gap: 10 }}>
@@ -143,12 +142,14 @@ export default function SetupScreen() {
               );
             })}
           </View>
+          {/* Present but not wired up in the prototype either (adding courses outside onboarding is TODO). */}
           <AddRow label="Create a new course" />
 
           <WideCta label="Choose players" disabled={!course} onPress={() => router.push('/players')} />
         </View>
       </ScrollView>
-      <BottomNav active="setup" />
+      {/* New game is a flow started from Home, not a tab: no tab is highlighted. */}
+      <BottomNav />
     </View>
   );
 }
@@ -164,9 +165,9 @@ function StepLabel({ step, label, first }: { step: number; label: string; first?
   );
 }
 
-function AddRow({ label }: { label: string }) {
+function AddRow({ label, onPress }: { label: string; onPress?: () => void }) {
   return (
-    <Pressable style={styles.addRow}>
+    <Pressable accessibilityRole="button" disabled={!onPress} onPress={onPress} style={styles.addRow}>
       <Icon name="plus" size={18} color={colors.green} />
       <Text style={styles.addRowText}>{label}</Text>
     </Pressable>
@@ -252,5 +253,4 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   addRowText: { color: colors.green, fontSize: 11, fontFamily: fonts.bodyBold },
-
 });

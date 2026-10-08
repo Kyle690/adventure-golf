@@ -7,24 +7,25 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, type IconName } from '@/components/Icon';
 import { colors, fonts } from '@/theme';
 
-export type NavTab = 'home' | 'setup' | 'players';
+export type NavTab = 'home' | 'venues' | 'players';
 
-const ITEMS: { label: string; icon: IconName; tab: NavTab; href: '/' | '/setup' | '/crew' }[] = [
+const ITEMS: { label: string; icon: IconName; tab?: NavTab; href: '/' | '/venues' | '/crew' }[] = [
   { label: 'Home', icon: 'home', tab: 'home', href: '/' },
-  { label: 'Venues', icon: 'pin', tab: 'setup', href: '/setup' },
+  // Venues tab = the venue list with stats; New game (/setup -> /players) is a flow started from Home.
+  { label: 'Venues', icon: 'pin', tab: 'venues', href: '/venues' },
   // Players tab = the crew list with stats; the round's player picker (/players) is part of New game.
   { label: 'Players', icon: 'users', tab: 'players', href: '/crew' },
-  // The prototype's History tab routes to Home (no history screen yet).
-  { label: 'History', icon: 'history', tab: 'home', href: '/' },
+  // The prototype's History tab routes to Home (no history screen yet), so it is never highlighted.
+  { label: 'History', icon: 'history', href: '/' },
 ];
 
-/** Floating bottom navigation pill (prototype .bottom-nav). */
-export function BottomNav({ active }: { active: NavTab }) {
+/** Floating bottom navigation pill (prototype .bottom-nav). `active` is omitted inside the New game flow, which isn't a tab. */
+export function BottomNav({ active }: { active?: NavTab }) {
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.nav, { bottom: Math.max(10, insets.bottom) }]}>
       {ITEMS.map((item) => {
-        const isActive = active === item.tab;
+        const isActive = item.tab !== undefined && active === item.tab;
         return (
           <Pressable
             accessibilityRole="button"

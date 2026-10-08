@@ -15,6 +15,13 @@
       "when": 1791490301375,
       "tag": "0001_player_photo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791492674730,
+      "tag": "0002_game_snapshots",
+      "breakpoints": true
     }
   ]
 }

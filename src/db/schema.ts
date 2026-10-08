@@ -84,13 +84,20 @@ export const players = sqliteTable(
   (t) => [uniqueIndex('players_single_owner_uq').on(t.isOwner).where(sql`${t.isOwner} = 1`)],
 );
 
+/**
+ * A round. The course and venue names are snapshotted when the game starts (and the hole layout
+ * into game_holes), so editing or deleting a course never rewrites history. courseId is kept as a
+ * link for "games at this course/venue" and becomes NULL if the course is deleted.
+ */
 export const games = sqliteTable(
   'games',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    courseId: integer('course_id')
-      .notNull()
-      .references(() => courses.id, { onDelete: 'cascade' }),
+    courseId: integer('course_id').references(() => courses.id, { onDelete: 'set null' }),
+    /** Course name when the game started. */
+    courseName: text('course_name').notNull(),
+    /** Venue name when the game started. */
+    venueName: text('venue_name').notNull(),
     startedAt: integer('started_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),
@@ -101,6 +108,32 @@ export const games = sqliteTable(
     index('games_course_id_idx').on(t.courseId),
     index('games_status_idx').on(t.status),
     index('games_started_at_idx').on(t.startedAt),
+  ],
+);
+
+/**
+ * The hole layout a game was played on: a copy of the course's holes taken at game start.
+ * Scores, totals, vs-par and handicap all read par from here, never from the live holes table.
+ * holeId links back to the source hole and becomes NULL if that hole is later removed.
+ */
+export const gameHoles = sqliteTable(
+  'game_holes',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    gameId: integer('game_id')
+      .notNull()
+      .references(() => games.id, { onDelete: 'cascade' }),
+    holeId: integer('hole_id').references(() => holes.id, { onDelete: 'set null' }),
+    number: integer('number').notNull(),
+    par: integer('par').notNull(),
+    length: integer('length'),
+    difficulty: text('difficulty', { enum: DIFFICULTY_LEVELS }),
+  },
+  (t) => [
+    uniqueIndex('game_holes_game_number_uq').on(t.gameId, t.number),
+    index('game_holes_hole_id_idx').on(t.holeId),
+    check('game_holes_par_positive', sql`${t.par} > 0`),
+    check('game_holes_number_positive', sql`${t.number} > 0`),
   ],
 );
 
@@ -133,18 +166,18 @@ export const scores = sqliteTable(
     playerId: integer('player_id')
       .notNull()
       .references(() => players.id, { onDelete: 'cascade' }),
-    holeId: integer('hole_id')
+    gameHoleId: integer('game_hole_id')
       .notNull()
-      .references(() => holes.id, { onDelete: 'cascade' }),
+      .references(() => gameHoles.id, { onDelete: 'cascade' }),
     strokes: integer('strokes').notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),
   },
   (t) => [
-    uniqueIndex('scores_game_player_hole_uq').on(t.gameId, t.playerId, t.holeId),
+    uniqueIndex('scores_game_player_hole_uq').on(t.gameId, t.playerId, t.gameHoleId),
     index('scores_player_id_idx').on(t.playerId),
-    index('scores_hole_id_idx').on(t.holeId),
+    index('scores_game_hole_id_idx').on(t.gameHoleId),
     check('scores_strokes_positive', sql`${t.strokes} > 0`),
   ],
 );
@@ -171,7 +204,7 @@ export const coursesRelations = relations(courses, ({ one, many }) => ({
 
 export const holesRelations = relations(holes, ({ one, many }) => ({
   course: one(courses, { fields: [holes.courseId], references: [courses.id] }),
-  scores: many(scores),
+  gameHoles: many(gameHoles),
 }));
 
 export const playersRelations = relations(players, ({ many }) => ({
@@ -181,7 +214,14 @@ export const playersRelations = relations(players, ({ many }) => ({
 
 export const gamesRelations = relations(games, ({ one, many }) => ({
   course: one(courses, { fields: [games.courseId], references: [courses.id] }),
+  holes: many(gameHoles),
   gamePlayers: many(gamePlayers),
+  scores: many(scores),
+}));
+
+export const gameHolesRelations = relations(gameHoles, ({ one, many }) => ({
+  game: one(games, { fields: [gameHoles.gameId], references: [games.id] }),
+  hole: one(holes, { fields: [gameHoles.holeId], references: [holes.id] }),
   scores: many(scores),
 }));
 
@@ -193,7 +233,7 @@ export const gamePlayersRelations = relations(gamePlayers, ({ one }) => ({
 export const scoresRelations = relations(scores, ({ one }) => ({
   game: one(games, { fields: [scores.gameId], references: [games.id] }),
   player: one(players, { fields: [scores.playerId], references: [players.id] }),
-  hole: one(holes, { fields: [scores.holeId], references: [holes.id] }),
+  gameHole: one(gameHoles, { fields: [scores.gameHoleId], references: [gameHoles.id] }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -210,6 +250,7 @@ export type Player = typeof players.$inferSelect;
 export type NewPlayer = typeof players.$inferInsert;
 export type Game = typeof games.$inferSelect;
 export type NewGame = typeof games.$inferInsert;
+export type GameHole = typeof gameHoles.$inferSelect;
 export type GamePlayer = typeof gamePlayers.$inferSelect;
 export type Score = typeof scores.$inferSelect;
 export type NewScore = typeof scores.$inferInsert;

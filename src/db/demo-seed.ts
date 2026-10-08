@@ -1,8 +1,8 @@
 import { eq } from 'drizzle-orm';
 
 import { PLAYER_COLORS } from '@/theme';
-import type { Database } from './client';
-import { appMeta, courses, gamePlayers, games, holes, players, scores, venues } from './schema';
+import type { Database } from './database';
+import { appMeta, courses, gameHoles, gamePlayers, games, holes, players, scores, venues } from './schema';
 
 
 /**
@@ -62,15 +62,25 @@ export async function seedDemoData(db: Database) {
     const playerRows = tx.insert(players).values(SEED.players).returning().all();
 
     const addGame = (
-      values: typeof games.$inferInsert,
+      values: Omit<typeof games.$inferInsert, 'courseName' | 'venueName'>,
       strokes: number[][],
     ) => {
-      const game = tx.insert(games).values(values).returning().get();
+      // Same snapshot as startGame(): names on the game, layout in game_holes.
+      const game = tx
+        .insert(games)
+        .values({ ...values, courseName: course.name, venueName: venue.name })
+        .returning()
+        .get();
+      const snapshot = tx
+        .insert(gameHoles)
+        .values(holeRows.map((h) => ({ gameId: game.id, holeId: h.id, number: h.number, par: h.par })))
+        .returning()
+        .all();
       tx.insert(gamePlayers)
         .values(playerRows.map((p, position) => ({ gameId: game.id, playerId: p.id, position })))
         .run();
       const rows = playerRows.flatMap((p, pi) =>
-        strokes[pi].map((s, hi) => ({ gameId: game.id, playerId: p.id, holeId: holeRows[hi].id, strokes: s })),
+        strokes[pi].map((s, hi) => ({ gameId: game.id, playerId: p.id, gameHoleId: snapshot[hi].id, strokes: s })),
       );
       if (rows.length) tx.insert(scores).values(rows).run();
     };

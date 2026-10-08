@@ -295,7 +295,7 @@ function RoundRow({ round }: { round: RecentRound }) {
     ? `Live · hole ${Math.min(round.holeCount, round.holesPlayed + 1)} of ${round.holeCount}`
     : `${timeAgo(round.date)}${round.position ? ` · ${ordinal(round.position)} of ${round.playerCount}` : ''}`;
   return (
-    <Pressable accessibilityRole="button" style={styles.round} onPress={() => router.push(`/game/${round.gameId}`)}>
+    <Pressable accessibilityRole="button" style={styles.round} onPress={() => router.push(round.live ? `/game/${round.gameId}` : `/scorecard/${round.gameId}`)}>
       <View style={[styles.roundIcon, round.live && { backgroundColor: '#ffe9e4' }]}>
         {round.live ? <View style={styles.liveDot} /> : <Icon name={round.position === 1 ? 'trophy' : 'flag'} color="#348d45" />}
       </View>

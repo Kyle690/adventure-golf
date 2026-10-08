@@ -53,7 +53,7 @@ export function playerStats(playerId: number, games: GameDetail[], recentLimit =
     const mine = grid.map((hole) => hole[index]);
     const scored = mine.filter((s) => s > 0);
     const total = totals[index];
-    const parPlayed = totalPar(game.course.holes.filter((_, h) => mine[h] > 0));
+    const parPlayed = totalPar(game.holes.filter((_, h) => mine[h] > 0));
     const vsPar = total - parPlayed;
 
     strokes += total;
@@ -67,19 +67,19 @@ export function playerStats(playerId: number, games: GameDetail[], recentLimit =
       rounds += 1;
       handicapInput.push({ strokes: total, par: parPlayed, holes: scored.length, date: game.completedAt ?? game.startedAt });
       if (position === 1) wins += 1;
-      if (!best || total < best.total) best = { total, courseName: game.course.name, vsPar };
+      if (!best || total < best.total) best = { total, courseName: game.courseName, vsPar };
     }
 
     if (recent.length < recentLimit) {
       recent.push({
         gameId: game.id,
-        courseName: game.course.name,
-        venueName: game.course.venue.name,
+        courseName: game.courseName,
+        venueName: game.venueName,
         date: game.completedAt ?? game.startedAt,
         live: game.status === 'in_progress',
         total,
         holesPlayed: scored.length,
-        holeCount: game.course.holes.length,
+        holeCount: game.holes.length,
         vsPar,
         position,
         playerCount: game.gamePlayers.length,

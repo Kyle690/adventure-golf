@@ -3,7 +3,7 @@ import { type PropsWithChildren, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import migrations from '../../drizzle/migrations';
-import { type Database, initDatabase } from './client';
+import { type Database, enableForeignKeys, initDatabase } from './client';
 import { seedDemoData } from './demo-seed';
 
 /** Dev-only: `EXPO_PUBLIC_DEMO_SEED=1 npx expo start` loads the prototype's demo data on a fresh DB. */
@@ -35,7 +35,8 @@ function Migrated({ database, children }: PropsWithChildren<{ database: Database
 
   useEffect(() => {
     if (!success) return;
-    (DEMO_SEED ? seedDemoData(database) : Promise.resolve())
+    enableForeignKeys()
+      .then(() => (DEMO_SEED ? seedDemoData(database) : undefined))
       .then(() => setSeeded(true))
       .catch((e: unknown) => setSeedError(e instanceof Error ? e : new Error(String(e))));
   }, [success, database]);

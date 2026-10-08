@@ -105,7 +105,7 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.quickGrid}>
-            <Pressable style={[styles.quickCard, { backgroundColor: '#ffe9e4' }]} onPress={() => router.dismissTo('/setup')}>
+            <Pressable style={[styles.quickCard, { backgroundColor: '#ffe9e4' }]} onPress={() => router.dismissTo('/venues')}>
               <View style={styles.quickIcon}>
                 <Icon name="pin" color="#fff" />
               </View>
@@ -140,7 +140,7 @@ export default function HomeScreen() {
 }
 
 function LiveGameCard({ game }: { game: GameDetail }) {
-  const holeCount = game.course.holes.length;
+  const holeCount = game.holes.length;
   const hole = currentHoleIndex(game) + 1;
   const progress = `${(hole / Math.max(1, holeCount)) * 100}%` as const;
   return (
@@ -156,9 +156,9 @@ function LiveGameCard({ game }: { game: GameDetail }) {
       <View style={styles.liveTitleRow}>
         <View style={{ flex: 1 }}>
           <Eyebrow style={{ fontSize: 8, color: '#6c8f71', marginBottom: 5 }}>
-            {`${BRAND} · ${game.course.venue.name}`.toUpperCase()}
+            {`${BRAND} · ${game.venueName}`.toUpperCase()}
           </Eyebrow>
-          <Text style={styles.liveTitle}>{game.course.name}</Text>
+          <Text style={styles.liveTitle}>{game.courseName}</Text>
         </View>
         <View style={styles.liveHole}>
           <Text style={styles.liveHoleNumber}>{hole}</Text>
@@ -219,22 +219,27 @@ function NoGamesCard() {
 function LastGameCard({ game }: { game: GameDetail }) {
   const best = bestTotal(game);
   return (
-    <View style={styles.recentCard}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Last game: ${game.courseName}. Open scorecard`}
+      onPress={() => router.push(`/scorecard/${game.id}`)}
+      style={({ pressed }) => [styles.recentCard, pressed && { transform: [{ scale: 0.99 }] }]}
+    >
       <View style={styles.recentIcon}>
         <Icon name="flag" color="#348d45" />
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Eyebrow style={{ color: '#8a9790' }}>LAST GAME</Eyebrow>
-        <Text style={styles.recentTitle}>{game.course.name}</Text>
+        <Text style={styles.recentTitle}>{game.courseName}</Text>
         <Text style={styles.recentMeta}>
-          {game.course.venue.name} · {game.course.holes.length} holes · {game.gamePlayers.length} players
+          {game.venueName} · {game.holes.length} holes · {game.gamePlayers.length} players
         </Text>
       </View>
       <View style={styles.winningScore}>
         <Text style={styles.winningNumber}>{best ?? '–'}</Text>
         <Text style={styles.winningLabel}>BEST</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 

@@ -1,11 +1,14 @@
-import { and, asc, count, desc, eq, max, ne, notExists } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, inArray, max, ne, notExists, sql } from 'drizzle-orm';
 
-import { db } from './client';
+import { summarizeVenue } from '@/lib/venue-stats';
+
+import { db } from './database';
 import { notifyDbChanged } from './events';
 import {
   appMeta,
   courses,
   type Difficulty,
+  gameHoles,
   gamePlayers,
   games,
   holes,
@@ -31,6 +34,64 @@ export function listVenues() {
   });
 }
 export type VenueWithCourses = Awaited<ReturnType<typeof listVenues>>[number];
+
+export function getVenue(id: number) {
+  return db.query.venues.findFirst({
+    where: eq(venues.id, id),
+    with: {
+      courses: {
+        orderBy: [asc(courses.id)],
+        with: { holes: { orderBy: [asc(holes.number)] } },
+      },
+    },
+  });
+}
+
+/** Adds a venue outside onboarding (Venues tab / Setup "Create a new venue"). */
+export function createVenue(values: { name: string; address: string | null; image: string | null }) {
+  const venue = db.insert(venues).values(values).returning().get();
+  notifyDbChanged();
+  return venue;
+}
+
+/**
+ * Per-course game aggregates (SQL GROUP BY): finished games played, and the last time the course
+ * was played (finished or live round; abandoned rounds ignored). lastPlayed is unix seconds.
+ */
+export function courseGameAggregates() {
+  return db
+    .select({
+      courseId: games.courseId,
+      gamesPlayed: sql<number>`sum(case when ${games.status} = 'completed' then 1 else 0 end)`,
+      lastPlayed: sql<number | null>`max(coalesce(${games.completedAt}, ${games.startedAt}))`,
+    })
+    .from(games)
+    .where(ne(games.status, 'abandoned'))
+    .groupBy(games.courseId);
+}
+
+/**
+ * One row per player per finished game: strokes, and par / count of the holes they scored, all
+ * from the game's own hole snapshot (game_holes), plus how many holes that round had.
+ */
+export function completedRoundTotals() {
+  return db
+    .select({
+      gameId: scores.gameId,
+      playerId: scores.playerId,
+      courseId: games.courseId,
+      courseName: games.courseName,
+      total: sql<number>`sum(${scores.strokes})`,
+      par: sql<number>`sum(${gameHoles.par})`,
+      holes: sql<number>`count(*)`,
+      roundHoles: sql<number>`(select count(*) from ${gameHoles} gh where gh.game_id = ${games.id})`,
+    })
+    .from(scores)
+    .innerJoin(games, eq(scores.gameId, games.id))
+    .innerJoin(gameHoles, eq(scores.gameHoleId, gameHoles.id))
+    .where(eq(games.status, 'completed'))
+    .groupBy(scores.gameId, scores.playerId);
+}
 export type CourseWithHoles = VenueWithCourses['courses'][number];
 
 export async function countVenues() {
@@ -48,13 +109,12 @@ export async function getOwner() {
   return owner ?? null;
 }
 
+/**
+ * A game as played: snapshot names (courseName, venueName) and snapshot holes (game_holes), never
+ * the live course, so later course edits can't change it.
+ */
 const gameDetail = {
-  course: {
-    with: {
-      venue: true as const,
-      holes: { orderBy: [asc(holes.number)] },
-    },
-  },
+  holes: { orderBy: [asc(gameHoles.number)] },
   gamePlayers: {
     orderBy: [asc(gamePlayers.position)],
     with: { player: true as const },
@@ -155,8 +215,36 @@ export function listGamesForStats() {
 export function startGame(courseId: number, playerIds: number[]) {
   if (playerIds.length === 0) throw new Error('Pick at least one player');
   const game = db.transaction((tx) => {
+    const course = tx.query.courses
+      .findFirst({ where: eq(courses.id, courseId), with: { venue: true, holes: { orderBy: [asc(holes.number)] } } })
+      .sync();
+    if (!course) throw new Error('Course not found');
+    if (course.holes.length === 0) throw new Error('This course has no holes');
     tx.update(games).set({ status: 'abandoned' }).where(eq(games.status, 'in_progress')).run();
-    const created = tx.insert(games).values({ courseId, status: 'in_progress', startedAt: new Date() }).returning().get();
+    const created = tx
+      .insert(games)
+      .values({
+        courseId,
+        courseName: course.name,
+        venueName: course.venue.name,
+        status: 'in_progress',
+        startedAt: new Date(),
+      })
+      .returning()
+      .get();
+    // Snapshot the layout: the game keeps these pars even if the course is edited later.
+    tx.insert(gameHoles)
+      .values(
+        course.holes.map((h) => ({
+          gameId: created.id,
+          holeId: h.id,
+          number: h.number,
+          par: h.par,
+          length: h.length,
+          difficulty: h.difficulty,
+        })),
+      )
+      .run();
     tx.insert(gamePlayers)
       .values(playerIds.map((playerId, position) => ({ gameId: created.id, playerId, position })))
       .run();
@@ -166,17 +254,17 @@ export function startGame(courseId: number, playerIds: number[]) {
   return game;
 }
 
-/** Upserts a player's strokes on a hole; 0 clears the score (shown as "–"). */
-export function setScore(gameId: number, playerId: number, holeId: number, strokes: number) {
+/** Upserts a player's strokes on one of the game's holes (game_holes.id); 0 clears the score ("–"). */
+export function setScore(gameId: number, playerId: number, gameHoleId: number, strokes: number) {
   if (strokes <= 0) {
     db.delete(scores)
-      .where(and(eq(scores.gameId, gameId), eq(scores.playerId, playerId), eq(scores.holeId, holeId)))
+      .where(and(eq(scores.gameId, gameId), eq(scores.playerId, playerId), eq(scores.gameHoleId, gameHoleId)))
       .run();
   } else {
     db.insert(scores)
-      .values({ gameId, playerId, holeId, strokes })
+      .values({ gameId, playerId, gameHoleId, strokes })
       .onConflictDoUpdate({
-        target: [scores.gameId, scores.playerId, scores.holeId],
+        target: [scores.gameId, scores.playerId, scores.gameHoleId],
         set: { strokes, updatedAt: new Date() },
       })
       .run();
@@ -184,8 +272,12 @@ export function setScore(gameId: number, playerId: number, holeId: number, strok
   notifyDbChanged();
 }
 
+/** Confirmed result: only a live round can be completed (status=completed, completedAt=now). */
 export function completeGame(id: number) {
-  db.update(games).set({ status: 'completed', completedAt: new Date() }).where(eq(games.id, id)).run();
+  db.update(games)
+    .set({ status: 'completed', completedAt: new Date() })
+    .where(and(eq(games.id, id), eq(games.status, 'in_progress')))
+    .run();
   notifyDbChanged();
 }
 
@@ -265,7 +357,27 @@ export function saveVenue(values: { id?: number | null; name: string; address: s
 
 export type HoleInput = { par: number; length: number | null; difficulty: Difficulty | null };
 
-/** Step 3: create (or update) a course and its holes. Holes are replaced wholesale on edit. */
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Writes a course's hole layout IN PLACE: holes are matched by number and updated, new numbers
+ * inserted, and only holes beyond the new count deleted. Games are unaffected either way: they
+ * play on their own game_holes snapshot (a deleted hole only nulls game_holes.hole_id).
+ */
+function writeHoles(tx: Tx, courseId: number, layout: HoleInput[]) {
+  const existing = tx.select().from(holes).where(eq(holes.courseId, courseId)).all();
+  layout.forEach((hole, i) => {
+    const number = i + 1;
+    const row = existing.find((h) => h.number === number);
+    if (row) tx.update(holes).set(hole).where(eq(holes.id, row.id)).run();
+    else tx.insert(holes).values({ ...hole, courseId, number }).run();
+  });
+  tx.delete(holes)
+    .where(and(eq(holes.courseId, courseId), gt(holes.number, layout.length)))
+    .run();
+}
+
+/** Step 3: create (or update) the onboarding course and its holes. */
 export function saveCourse(values: {
   id?: number | null;
   venueId: number;
@@ -278,15 +390,50 @@ export function saveCourse(values: {
     const row = values.id
       ? tx.update(courses).set(data).where(eq(courses.id, values.id)).returning().get()
       : tx.insert(courses).values(data).returning().get();
-    tx.delete(holes).where(eq(holes.courseId, row.id)).run();
-    tx.insert(holes)
-      .values(values.holes.map((hole, i) => ({ ...hole, courseId: row.id, number: i + 1 })))
-      .run();
+    writeHoles(tx, row.id, values.holes);
     return row;
   });
   setMeta('onboarding_course_id', String(course.id));
   notifyDbChanged();
   return course;
+}
+
+/** Course edit screen: name, photo and hole layout (in place, see writeHoles). */
+export function updateCourse(id: number, values: { name: string; image: string | null; holes: HoleInput[] }) {
+  db.transaction((tx) => {
+    tx.update(courses).set({ name: values.name, image: values.image }).where(eq(courses.id, id)).run();
+    writeHoles(tx, id, values.holes);
+  });
+  notifyDbChanged();
+}
+
+export function getCourse(id: number) {
+  return db.query.courses.findFirst({
+    where: eq(courses.id, id),
+    with: { venue: true as const, holes: { orderBy: [asc(holes.number)] } },
+  });
+}
+
+/** Games (not abandoned) played on a course; they keep their own layout when it is edited. */
+export function countCourseGames(courseId: number) {
+  const row = db
+    .select({ n: count() })
+    .from(games)
+    .where(and(eq(games.courseId, courseId), ne(games.status, 'abandoned')))
+    .get();
+  return row?.n ?? 0;
+}
+
+/** Games played at a venue (all its courses), newest first. Abandoned games are hidden. */
+export function listVenueGames(venueId: number) {
+  return db.query.games.findMany({
+    where: and(
+      ne(games.status, 'abandoned'),
+      inArray(games.courseId, db.select({ id: courses.id }).from(courses).where(eq(courses.venueId, venueId))),
+    ),
+    with: gameDetail,
+    orderBy: [desc(games.startedAt), desc(games.id)],
+  });
 }
 
 /**
@@ -296,4 +443,28 @@ export function saveCourse(values: {
 export function finishOnboarding() {
   setMeta('onboarding', 'complete');
   notifyDbChanged();
+}
+
+// ---------------------------------------------------------------------------
+// Venue stats (aggregates from SQL, combined by the pure functions in lib/venue-stats)
+// ---------------------------------------------------------------------------
+
+export async function loadVenueSummaries() {
+  const [venueRows, aggregates, totals, owner] = await Promise.all([
+    listVenues(),
+    courseGameAggregates(),
+    completedRoundTotals(),
+    getOwner(),
+  ]);
+  return venueRows.map((v) => summarizeVenue(v, aggregates, totals, owner?.id ?? null));
+}
+
+export async function loadVenueSummary(id: number) {
+  const [venue, aggregates, totals, owner] = await Promise.all([
+    getVenue(id),
+    courseGameAggregates(),
+    completedRoundTotals(),
+    getOwner(),
+  ]);
+  return venue ? summarizeVenue(venue, aggregates, totals, owner?.id ?? null) : null;
 }

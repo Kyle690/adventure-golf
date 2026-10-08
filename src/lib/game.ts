@@ -1,9 +1,10 @@
 import type { GameDetail } from '@/db/queries';
+import { rankResults, type PlayerResult } from '@/lib/results';
 
-/** strokes[holeIndex][playerIndex], 0 = not entered yet. */
+/** strokes[holeIndex][playerIndex] over the game's own hole snapshot, 0 = not entered yet. */
 export function scoreGrid(game: GameDetail): number[][] {
-  const byKey = new Map(game.scores.map((s) => [`${s.holeId}:${s.playerId}`, s.strokes]));
-  return game.course.holes.map((hole) =>
+  const byKey = new Map(game.scores.map((s) => [`${s.gameHoleId}:${s.playerId}`, s.strokes]));
+  return game.holes.map((hole) =>
     game.gamePlayers.map(({ player }) => byKey.get(`${hole.id}:${player.id}`) ?? 0),
   );
 }
@@ -28,4 +29,13 @@ export function currentHoleIndex(game: GameDetail): number {
 export function bestTotal(game: GameDetail): number | null {
   const totals = playerTotals(game).filter((t) => t > 0);
   return totals.length ? Math.min(...totals) : null;
+}
+
+/** Ranked results for a game (see lib/results). */
+export function gameResults(game: GameDetail): PlayerResult[] {
+  const grid = scoreGrid(game);
+  return rankResults(
+    game.holes.map((h) => h.par),
+    game.gamePlayers.map(({ player }, p) => ({ playerId: player.id, name: player.name, strokes: grid.map((hole) => hole[p]) })),
+  );
 }

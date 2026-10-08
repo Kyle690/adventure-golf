@@ -1,20 +1,12 @@
 import { drizzle } from 'drizzle-orm/expo-sqlite';
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
+import { type Database, setDatabase } from './database';
 import * as schema from './schema';
 
+export type { Database } from './database';
 export const DATABASE_NAME = 'adventure-golf.db';
 
-function createDb(expoDb: SQLiteDatabase) {
-  return drizzle(expoDb, { schema });
-}
-export type Database = ReturnType<typeof createDb>;
-
-/**
- * The Drizzle client. Assigned by initDatabase() before any screen renders
- * (DatabaseProvider gates the tree), so screens and queries can import it directly.
- */
-export let db: Database;
 export let expoDb: SQLiteDatabase;
 
 let opening: Promise<Database> | null = null;
@@ -22,14 +14,23 @@ let opening: Promise<Database> | null = null;
 /**
  * Opens the SQLite file. It's opened asynchronously because on web expo-sqlite has to boot its
  * wasm worker before the synchronous API can be used; on iOS/Android this is just a normal open.
+ *
+ * Foreign keys stay OFF while migrations run: SQLite ignores PRAGMA foreign_keys inside the
+ * migrator's transaction, and table rebuilds (DROP TABLE + rename) would otherwise cascade-delete
+ * child rows. DatabaseProvider calls enableForeignKeys() once migrations have succeeded.
  */
 export function initDatabase(): Promise<Database> {
   opening ??= (async () => {
     expoDb = await openDatabaseAsync(DATABASE_NAME);
-    // SQLite does not enforce FKs (and so cascades) unless enabled per connection.
-    await expoDb.execAsync('PRAGMA foreign_keys = ON;');
-    db = createDb(expoDb);
-    return db;
+    await expoDb.execAsync('PRAGMA foreign_keys = OFF;');
+    const database = drizzle(expoDb, { schema });
+    setDatabase(database);
+    return database;
   })();
   return opening;
+}
+
+/** SQLite only enforces FKs (and so cascades) when enabled per connection. */
+export async function enableForeignKeys() {
+  await expoDb.execAsync('PRAGMA foreign_keys = ON;');
 }

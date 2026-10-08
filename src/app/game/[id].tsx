@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -11,10 +11,11 @@ import { Icon } from '@/components/Icon';
 import { LeafDecoration } from '@/components/LeafDecoration';
 import { Logo } from '@/components/Logo';
 import { PlayerAvatar } from '@/components/PlayerAvatar';
+import { FinishSheet } from '@/components/FinishSheet';
 import { RoundMenu } from '@/components/RoundMenu';
 import { useDbQuery } from '@/db/hooks';
 import { completeGame, deleteGame, getGame, setScore } from '@/db/queries';
-import { currentHoleIndex, playerTotals, scoreGrid, totalPar } from '@/lib/game';
+import { currentHoleIndex, gameResults, playerTotals, scoreGrid, totalPar } from '@/lib/game';
 import { playerColor } from '@/lib/players';
 import { colors, fonts, MAX_STROKES } from '@/theme';
 
@@ -29,6 +30,9 @@ export default function GameScreen() {
 
   const [activeHole, setActiveHole] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [finishOpen, setFinishOpen] = useState(false);
+  // Set when the result is confirmed, so the screen doesn't redirect to the scorecard while it is leaving.
+  const [confirmed, setConfirmed] = useState(false);
   const [width, setWidth] = useState(0);
   const scroller = useRef<ScrollView>(null);
   const positioned = useRef(false);
@@ -64,7 +68,12 @@ export default function GameScreen() {
     );
   }
 
-  const holes = game.course.holes;
+  // Finished rounds are read-only: show the score sheet instead of the score entry screen.
+  if (game.status === 'completed') {
+    return confirmed ? <View style={styles.screen} /> : <Redirect href={`/scorecard/${game.id}`} />;
+  }
+
+  const holes = game.holes;
   const players = game.gamePlayers.map((gp) => gp.player);
   const grid = scoreGrid(game);
   const totals = playerTotals(game);
@@ -89,9 +98,17 @@ export default function GameScreen() {
     if (next !== current) setScore(game.id, players[playerIndex].id, holes[holeIndex].id, next);
   };
 
+  // "Finish round" opens the result confirmation; only "Confirm result" completes the game.
   const finish = () => {
+    setFinishOpen(true);
+  };
+  const confirmResult = () => {
+    setFinishOpen(false);
+    setConfirmed(true);
     completeGame(game.id);
-    router.dismissTo('/');
+    // Reset the stack to Home so back can't return to the finished round.
+    if (router.canDismiss()) router.dismissAll();
+    router.replace('/');
   };
 
   return (
@@ -113,11 +130,11 @@ export default function GameScreen() {
             </Pressable>
           </View>
           <Eyebrow style={{ color: '#90ce5e', marginBottom: 7 }}>{isLive ? 'LIVE ROUND' : 'FINISHED ROUND'}</Eyebrow>
-          <Text style={styles.title}>{game.course.name}</Text>
+          <Text style={styles.title}>{game.courseName}</Text>
           <View style={styles.meta}>
             <View style={styles.metaChip}>
               <Icon name="pin" size={15} color="rgba(255,255,255,0.78)" />
-              <Text style={styles.metaText}>{game.course.venue.name}</Text>
+              <Text style={styles.metaText}>{game.venueName}</Text>
             </View>
             <View style={styles.metaChip}>
               <Icon name="flag" size={15} color="rgba(255,255,255,0.78)" />
@@ -240,9 +257,17 @@ export default function GameScreen() {
         </View>
       </ScrollView>
 
+      <FinishSheet
+        visible={finishOpen}
+        courseName={game.courseName}
+        results={gameResults(game)}
+        players={players}
+        onConfirm={confirmResult}
+        onCancel={() => setFinishOpen(false)}
+      />
       <RoundMenu
         visible={menuOpen}
-        courseName={game.course.name}
+        courseName={game.courseName}
         onClose={() => setMenuOpen(false)}
         onSaveAndExit={() => router.dismissTo('/')}
         onQuit={() => {

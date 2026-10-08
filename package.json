@@ -33,11 +33,13 @@
   "devDependencies": {
     "@types/node": "^20.19.43",
     "@types/react": "~19.2.2",
+    "@types/sql.js": "^1.4.11",
     "babel-plugin-inline-import": "^3.0.0",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.2",
     "patch-package": "^8.0.1",
+    "sql.js": "^1.14.2",
     "tsx": "^4.23.15",
     "typescript": "~6.0.3"
   },
@@ -53,7 +55,7 @@
     "serve:web": "node scripts/serve-web.mjs",
     "postinstall": "patch-package",
     "start:demo": "EXPO_PUBLIC_DEMO_SEED=1 expo start",
-    "test": "tsx --test src/lib/*.test.ts"
+    "test": "tsx --test src/lib/*.test.ts src/db/*.test.ts"
   },
   "private": true
 }

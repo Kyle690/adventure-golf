@@ -269,8 +269,11 @@ const styles = StyleSheet.create({
   heroKicker: { marginBottom: 8, color: '#8dcf59', fontSize: 10, fontFamily: fonts.bodyBold, letterSpacing: 2 },
   heroTitle: { color: '#fff', fontFamily: fonts.display, fontSize: 39, lineHeight: 38.2, letterSpacing: -0.975 },
 
-  content: { paddingHorizontal: 20, paddingBottom: 28 },
-
+  content: {
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+    marginTop:-20
+  },
   liveCard: {
     zIndex: 5,
     marginTop: -17,
@@ -361,8 +364,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: colors.red,
   },
-  resumeText: { color: '#fff', fontSize: 9, fontFamily: fonts.bodyBold },
-
+  resumeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontFamily: fonts.bodyBold,
+  },
   primaryCard: {
     zIndex: 4,
     padding: 24,

@@ -68,9 +68,9 @@ function OnboardingPager({ state }: { state: OnboardingState }) {
     goTo(next);
   };
 
-  const start = (playerIds: number[]) => {
+  const create = () => {
     if (!state.course) return;
-    finishOnboarding(state.course.id, playerIds);
+    finishOnboarding();
     router.replace('/onboarding/complete');
   };
 
@@ -141,7 +141,7 @@ function OnboardingPager({ state }: { state: OnboardingState }) {
     <OwnerStep key="owner" state={state} topBar={topBar(0)} onSaved={() => advance(0)} />,
     <VenueStep key="venue" state={state} topBar={topBar(1)} onSaved={() => advance(1)} />,
     <CourseStep key="course" state={state} topBar={topBar(2)} onSaved={() => advance(2)} />,
-    <CrewStep key="crew" state={state} topBar={topBar(3)} onStart={start} />,
+    <CrewStep key="crew" state={state} topBar={topBar(3)} onCreate={create} />,
   ];
 
   return (

@@ -13,15 +13,15 @@ import { colors, fonts, MAX_PLAYERS } from '@/theme';
 
 /**
  * Step 4: build the crew. Players are written to SQLite as soon as they are added/removed,
- * and "Start game" starts a real round on the onboarding course with everyone listed.
+ * and "Create" just finishes onboarding (no game is started).
  */
 export function CrewStep({
   state,
-  onStart,
+  onCreate,
   topBar,
 }: {
   state: OnboardingState;
-  onStart: (playerIds: number[]) => void;
+  onCreate: () => void;
   topBar: React.ReactNode;
 }) {
   const crew = state.crew;
@@ -45,7 +45,7 @@ export function CrewStep({
       total={4}
       eyebrow="YOUR CREW"
       title="Who's playing?"
-      subtitle={`Add the friends and family joining you on ${state.course?.name ?? 'your course'}.`}
+      subtitle={`Add the friends and family you play ${state.course?.name ?? 'your course'} with.`}
     >
       <View style={styles.count}>
         <Text style={styles.countText}>{crew.length} {crew.length === 1 ? 'PLAYER' : 'PLAYERS'}</Text>
@@ -114,10 +114,10 @@ export function CrewStep({
       <Text style={styles.note}>
         {crew.length === 1
           ? 'Playing solo? That works too. You can always add players later.'
-          : `Turn order follows this list. Everyone tees off on hole 1.`}
+          : 'You can choose who plays each time you start a round.'}
       </Text>
 
-      <WideCta label="Start game" disabled={!state.course || crew.length === 0} onPress={() => onStart(crew.map((p) => p.id))} />
+      <WideCta label="Create" disabled={!state.course} onPress={onCreate} />
     </StepPage>
   );
 }

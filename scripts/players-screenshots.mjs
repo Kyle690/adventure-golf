@@ -127,7 +127,7 @@ await p2.waitForTimeout(600);
 await p2.getByLabel('COURSE NAME').fill('The Tropical Trail');
 await p2.getByRole('button', { name: 'Save course' }).click();
 await p2.waitForTimeout(600);
-await p2.getByRole('button', { name: 'Start game' }).click();
+await p2.getByRole('button', { name: 'Create', exact: true }).click();
 await p2.waitForURL(/complete/);
 await p2.getByRole('button', { name: 'Go to Home' }).click();
 await p2.waitForTimeout(1500);

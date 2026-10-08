@@ -112,28 +112,34 @@ await page.getByLabel('Player name').fill('Sam');
 await page.getByLabel('Add player').click();
 await page.getByLabel('Remove Sam').click();
 await shot('onboarding-04b-crew-added');
-await page.getByRole('button', { name: 'Start game' }).click();
+await page.getByRole('button', { name: 'Create', exact: true }).click();
 
 // Complete
 await page.waitForURL(/onboarding\/complete/);
 await shot('onboarding-05-complete', 2030);
 check(await page.getByText("You're all set,").isVisible(), 'complete screen congratulates by name');
 check(await page.getByText('Kyle!').isVisible(), 'uses first name');
+check(await page.getByText('YOUR VENUE').isVisible() && await page.getByText('Johannesburg, Gauteng').isVisible(), 'complete card shows venue + address');
+check(
+  (await page.evaluate(() => [...document.querySelectorAll('img')].filter((i) => i.src.startsWith('data:image/') && i.getBoundingClientRect().width > 0).length)) >= 2,
+  'complete card shows the venue photo and course photo',
+);
+check(await page.getByText('The Tropical Trail').isVisible() && await page.getByText('TOTAL PAR').isVisible(), 'complete card shows course, holes and par');
+check(await page.getByText('3 PLAYERS').isVisible(), 'complete card shows player count');
+check((await page.getByText(/first round|ROUND READY/i).count()) === 0, 'no first-round copy');
 await page.getByRole('button', { name: 'Go to Home' }).click();
 
 // Home
 await page.waitForURL((u) => new globalThis.URL(u).pathname === '/');
 await shot('onboarding-06-home', 1200);
 check(await page.getByText('KW', { exact: true }).last().isVisible(), 'home initials from owner name');
-check(await page.getByText('ROUND IN PROGRESS').last().isVisible(), 'home shows the round started from onboarding');
+check((await page.getByText('ROUND IN PROGRESS').count()) === 0, 'onboarding created no game: no round in progress on Home');
 check(await page.getByText('No finished rounds yet').last().isVisible(), 'home last-game empty state');
 
 // Reload: onboarding must not come back.
 await page.reload({ waitUntil: 'networkidle' });
 await settle(1500);
 check(!page.url().includes('onboarding'), 'reload stays on Home after onboarding');
-await page.getByText('Resume game').last().click();
-await shot('onboarding-07-first-game', 1000);
 await page.goto(URL + 'setup', { waitUntil: 'networkidle' });
 await shot('onboarding-08-setup-with-photos', 1200);
 await ctx.close();

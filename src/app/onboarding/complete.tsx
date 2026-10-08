@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -5,6 +6,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Eyebrow } from '@/components/Eyebrow';
+import { Icon } from '@/components/Icon';
 import { GolfBall } from '@/components/GolfBall';
 import { LeafDecoration } from '@/components/LeafDecoration';
 import { Logo } from '@/components/Logo';
@@ -14,20 +16,20 @@ import { PlayerAvatar } from '@/components/PlayerAvatar';
 import { Text } from '@/components/Text';
 import { WideCta } from '@/components/WideCta';
 import { useDbQuery } from '@/db/hooks';
-import { getLiveGame, getOwner } from '@/db/queries';
+import { getOnboardingState } from '@/db/queries';
 import { totalPar } from '@/lib/game';
 import { firstName } from '@/lib/players';
-import { BRAND, colors, fonts } from '@/theme';
+import { colors, fonts } from '@/theme';
 
-/** Celebration shown once, right after "Start game" on the last onboarding step. */
+/** Celebration shown once, right after "Create" on the last onboarding step: recaps what was set up. */
 export default function OnboardingCompleteScreen() {
   const insets = useSafeAreaInsets();
-  const { data } = useDbQuery(async () => {
-    const [owner, game] = await Promise.all([getOwner(), getLiveGame()]);
-    return { owner, game };
-  });
+  // The venue/course created during onboarding are remembered in app_meta.
+  const { data } = useDbQuery(getOnboardingState);
   const name = firstName(data?.owner?.name);
-  const game = data?.game;
+  const venue = data?.venue;
+  const course = data?.course;
+  const crew = data?.crew ?? [];
 
   return (
     <View style={styles.screen}>
@@ -55,36 +57,71 @@ export default function OnboardingCompleteScreen() {
           <Eyebrow style={{ marginBottom: 9, color: '#90ce5e', textAlign: 'center' }}>ONBOARDING COMPLETE</Eyebrow>
           <Text style={styles.title}>{data ? `You're all set,\n${name || 'golfer'}!` : ' '}</Text>
           <Text style={styles.subtitle}>
-            Welcome to the club. Your clubhouse is ready and your first round is waiting on the first tee.
+            Welcome to the club. Your clubhouse is ready: here&apos;s everything you just created.
           </Text>
         </Animated.View>
 
-        {game ? (
+        {data ? (
           <Animated.View entering={FadeInDown.duration(500).delay(320)} style={styles.card}>
-            <View style={styles.cardTop}>
-              <View style={styles.status}>
-                <View style={styles.statusDot} />
-                <Text style={styles.statusText}>FIRST ROUND READY</Text>
-              </View>
-            </View>
-            <Eyebrow style={{ fontSize: 8, color: '#6c8f71', marginBottom: 5 }}>
-              {`${BRAND} · ${game.course.venue.name}`.toUpperCase()}
-            </Eyebrow>
-            <Text style={styles.cardTitle}>{game.course.name}</Text>
-            <View style={styles.stats}>
-              <Stat value={game.course.holes.length} label="HOLES" />
-              <Stat value={totalPar(game.course.holes)} label="PAR" />
-              <Stat value={game.gamePlayers.length} label={game.gamePlayers.length === 1 ? 'PLAYER' : 'PLAYERS'} />
-            </View>
-            <View style={styles.crew}>
-              {game.gamePlayers.map(({ player }, index) => (
-                <View key={player.id} style={styles.crewMember}>
-                  <PlayerAvatar player={player} index={index} size={30} />
-                  <Text style={styles.crewName} numberOfLines={1}>
-                    {player.isOwner ? 'You' : player.name}
-                  </Text>
+            {venue ? (
+              <View>
+                {venue.image ? (
+                  <Image source={{ uri: venue.image }} style={styles.venuePhoto} contentFit="cover" accessibilityLabel="Venue photo" />
+                ) : null}
+                <View style={styles.section}>
+                  <View style={[styles.sectionIcon, { backgroundColor: colors.green }]}>
+                    <Icon name="pin" color="#fff" />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.kicker}>YOUR VENUE</Text>
+                    <Text style={styles.cardTitle} numberOfLines={2}>
+                      {venue.name}
+                    </Text>
+                    {venue.address ? <Text style={styles.cardSub}>{venue.address}</Text> : null}
+                  </View>
                 </View>
-              ))}
+              </View>
+            ) : null}
+
+            {course ? (
+              <View style={[styles.section, styles.divided]}>
+                <View style={[styles.sectionIcon, { backgroundColor: colors.yellow }]}>
+                  {course.image ? (
+                    <Image source={{ uri: course.image }} style={styles.thumb} contentFit="cover" accessibilityLabel="Course photo" />
+                  ) : (
+                    <Icon name="flag" />
+                  )}
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.kicker}>YOUR COURSE</Text>
+                  <Text style={styles.cardTitle} numberOfLines={2}>
+                    {course.name}
+                  </Text>
+                  <View style={styles.stats}>
+                    <Stat value={course.holes.length} label="HOLES" />
+                    <Stat value={totalPar(course.holes)} label="TOTAL PAR" />
+                  </View>
+                </View>
+              </View>
+            ) : null}
+
+            <View style={styles.divided}>
+              <View style={styles.crewHeading}>
+                <Text style={styles.kicker}>YOUR CREW</Text>
+                <Text style={styles.crewCount}>
+                  {crew.length} {crew.length === 1 ? 'PLAYER' : 'PLAYERS'}
+                </Text>
+              </View>
+              <View style={styles.crew}>
+                {crew.map((player, index) => (
+                  <View key={player.id} style={styles.crewMember}>
+                    <PlayerAvatar player={player} index={index} size={34} />
+                    <Text style={styles.crewName} numberOfLines={1}>
+                      {player.isOwner ? 'You' : player.name}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </View>
           </Animated.View>
         ) : null}
@@ -123,27 +160,34 @@ const styles = StyleSheet.create({
   // Same white card treatment as the Home "round in progress" card.
   card: {
     marginTop: 24,
-    padding: 18,
+    overflow: 'hidden',
     borderRadius: 20,
     backgroundColor: '#fff',
     boxShadow: '0 18px 40px rgba(0, 0, 0, 0.22)',
   },
-  cardTop: { flexDirection: 'row', marginBottom: 13 },
-  status: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: colors.red,
-    boxShadow: '0 0 0 4px rgba(237, 27, 59, 0.1)',
+  venuePhoto: { width: '100%', aspectRatio: 16 / 7, backgroundColor: '#e9f1e5' },
+  section: { flexDirection: 'row', alignItems: 'flex-start', gap: 13, padding: 17 },
+  divided: { marginHorizontal: 17, paddingHorizontal: 0, paddingVertical: 15, borderTopWidth: 1, borderTopColor: '#edf0ea' },
+  // Icon tiles from the Setup venue/course cards.
+  sectionIcon: {
+    width: 45,
+    height: 45,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderRadius: 13,
   },
-  statusText: { color: colors.red, fontSize: 8, fontFamily: fonts.bodyBold, letterSpacing: 0.8 },
-  cardTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 22 },
-  stats: { flexDirection: 'row', gap: 8, marginTop: 14 },
-  stat: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 12, backgroundColor: '#edf4e8' },
-  statValue: { color: colors.ink, fontFamily: fonts.displayBold, fontSize: 22, lineHeight: 26 },
+  thumb: { width: '100%', height: '100%' },
+  kicker: { color: colors.green, fontSize: 8, lineHeight: 12, fontFamily: fonts.bodyBold, letterSpacing: 1.2 },
+  cardTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 20, lineHeight: 26 },
+  cardSub: { marginTop: 1, color: '#8c9992', fontSize: 10, fontFamily: fonts.body },
+  stats: { flexDirection: 'row', gap: 8, marginTop: 9 },
+  stat: { flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 11, backgroundColor: '#edf4e8' },
+  statValue: { color: colors.ink, fontFamily: fonts.displayBold, fontSize: 20, lineHeight: 24 },
   statLabel: { color: '#7f8e86', fontSize: 7, lineHeight: 10, fontFamily: fonts.bodyBold, letterSpacing: 1 },
-  crew: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 15 },
-  crewMember: { alignItems: 'center', gap: 4, width: 46 },
-  crewName: { maxWidth: 46, color: '#5f6f67', fontSize: 9, fontFamily: fonts.bodySemi },
+  crewHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  crewCount: { color: '#7b8c83', fontSize: 8, lineHeight: 12, fontFamily: fonts.bodyBold, letterSpacing: 0.8 },
+  crew: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 11 },
+  crewMember: { alignItems: 'center', gap: 4, width: 48 },
+  crewName: { maxWidth: 48, color: '#5f6f67', fontSize: 9, fontFamily: fonts.bodySemi },
 });

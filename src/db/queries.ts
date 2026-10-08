@@ -289,10 +289,11 @@ export function saveCourse(values: {
   return course;
 }
 
-/** Step 4: start the first round with the whole crew and mark onboarding complete. */
-export function finishOnboarding(courseId: number, playerIds: number[]) {
-  const game = startGame(courseId, playerIds);
+/**
+ * Step 4 "Create": everything (owner, venue, course, crew) is already saved, so this only marks
+ * onboarding complete. No game is created; Home starts with no round in progress.
+ */
+export function finishOnboarding() {
   setMeta('onboarding', 'complete');
   notifyDbChanged();
-  return game;
 }

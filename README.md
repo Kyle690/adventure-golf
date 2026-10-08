@@ -29,7 +29,7 @@ src/app/              Expo Router screens
   index.tsx           Home (live round, start CTA, clubhouse, last game); redirects to
                       onboarding while no owner exists / onboarding is unfinished
   onboarding/index.tsx  first-run carousel: owner -> venue -> course -> crew (reanimated pager)
-  onboarding/complete.tsx  celebration screen (confetti, bouncing ball) -> Home
+  onboarding/complete.tsx  celebration + recap of venue/course/crew (confetti, ball) -> Home
   setup.tsx           New game: venue, course, per-hole par editor
   players.tsx         New game step 2, Who's playing: tap to select / add / remove players,
                       start the round (prototype behaviour)
@@ -91,9 +91,9 @@ owner is saved). Each step's primary button writes through Drizzle and slides to
 you can go back (button, swipe, Android back) but never swipe past the first unsaved step.
 The venue/course created are remembered in `app_meta` (`onboarding_venue_id`,
 `onboarding_course_id`), so going back and saving again updates them, and relaunching mid-way
-reopens on the first unsaved step. "Start game" creates a real in-progress game on the new
-course with everyone on the crew list and marks onboarding complete, so Home shows it under
-"Round in progress".
+reopens on the first unsaved step. The last step's "Create" button only marks onboarding
+complete (no game is created) and shows a recap of the venue, course and crew; Home then has
+no round in progress.
 
 ## expo-sqlite web patch
 

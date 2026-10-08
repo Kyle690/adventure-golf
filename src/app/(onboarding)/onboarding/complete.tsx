@@ -1,17 +1,9 @@
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
 
-import { Eyebrow } from '@/components/Eyebrow';
+import { Celebration } from '@/components/celebration/Celebration';
 import { Icon } from '@/components/Icon';
-import { GolfBall } from '@/components/GolfBall';
-import { LeafDecoration } from '@/components/LeafDecoration';
-import { Logo } from '@/components/Logo';
-import { BouncingBall } from '@/components/onboarding/BouncingBall';
-import { Confetti } from '@/components/onboarding/Confetti';
 import { PlayerAvatar } from '@/components/PlayerAvatar';
 import { Text } from '@/components/Text';
 import { WideCta } from '@/components/WideCta';
@@ -21,9 +13,11 @@ import { totalPar } from '@/lib/game';
 import { firstName } from '@/lib/players';
 import { colors, fonts } from '@/theme';
 
-/** Celebration shown once, right after "Create" on the last onboarding step: recaps what was set up. */
+/**
+ * Celebration shown once, right after "Create" on the last onboarding step: recaps what was set up.
+ * (The animated layout is the shared <Celebration>, also shown when a round is confirmed.)
+ */
 export default function OnboardingCompleteScreen() {
-  const insets = useSafeAreaInsets();
   // The venue/course created during onboarding are remembered in app_meta.
   const { data } = useDbQuery(getOnboardingState);
   const name = firstName(data?.owner?.name);
@@ -32,37 +26,14 @@ export default function OnboardingCompleteScreen() {
   const crew = data?.crew ?? [];
 
   return (
-    <View style={styles.screen}>
-      <LinearGradient
-        colors={['rgba(105,183,52,0.18)', 'transparent']}
-        locations={[0, 0.55]}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <LeafDecoration />
-      <GolfBall size={26} style={{ top: 120, left: 26, opacity: 0.7 }} />
-      <GolfBall size={18} style={{ top: 210, right: 30, opacity: 0.55 }} />
-
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: Math.max(22, insets.top), paddingBottom: insets.bottom + 28 },
-        ]}
-      >
-        <Logo style={{ alignSelf: 'center' }} />
-        <BouncingBall />
-
-        <Animated.View entering={FadeInDown.duration(500).delay(150)} style={styles.copy}>
-          <Eyebrow style={{ marginBottom: 9, color: '#90ce5e', textAlign: 'center' }}>ONBOARDING COMPLETE</Eyebrow>
-          <Text style={styles.title}>{data ? `You're all set,\n${name || 'golfer'}!` : ' '}</Text>
-          <Text style={styles.subtitle}>
-            Welcome to the club. Your clubhouse is ready: here&apos;s everything you just created.
-          </Text>
-        </Animated.View>
-
-        {data ? (
-          <Animated.View entering={FadeInDown.duration(500).delay(320)} style={styles.card}>
+    <Celebration
+      eyebrow="ONBOARDING COMPLETE"
+      title={data ? `You're all set,\n${name || 'golfer'}!` : ' '}
+      subtitle="Welcome to the club. Your clubhouse is ready: here's everything you just created."
+      actions={<WideCta label="Go to Home" onPress={() => router.replace('/')} />}
+      card={
+        data ? (
+          <>
             {venue ? (
               <View>
                 {venue.image ? (
@@ -123,15 +94,10 @@ export default function OnboardingCompleteScreen() {
                 ))}
               </View>
             </View>
-          </Animated.View>
-        ) : null}
-
-        <Animated.View entering={FadeInDown.duration(500).delay(480)}>
-          <WideCta label="Go to Home" onPress={() => router.replace('/')} />
-        </Animated.View>
-      </ScrollView>
-      <Confetti />
-    </View>
+          </>
+        ) : null
+      }
+    />
   );
 }
 
@@ -145,26 +111,6 @@ function Stat({ value, label }: { value: number; label: string }) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, overflow: 'hidden', backgroundColor: colors.deep },
-  content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 22 },
-  copy: { alignItems: 'center', marginTop: 22 },
-  title: { color: '#fff', fontFamily: fonts.display, fontSize: 34, lineHeight: 40, textAlign: 'center' },
-  subtitle: {
-    marginTop: 9,
-    maxWidth: 300,
-    color: 'rgba(255,255,255,0.68)',
-    fontSize: 12,
-    fontFamily: fonts.body,
-    textAlign: 'center',
-  },
-  // Same white card treatment as the Home "round in progress" card.
-  card: {
-    marginTop: 24,
-    overflow: 'hidden',
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    boxShadow: '0 18px 40px rgba(0, 0, 0, 0.22)',
-  },
   venuePhoto: { width: '100%', aspectRatio: 16 / 7, backgroundColor: '#e9f1e5' },
   section: { flexDirection: 'row', alignItems: 'flex-start', gap: 13, padding: 17 },
   divided: { marginHorizontal: 17, paddingHorizontal: 0, paddingVertical: 15, borderTopWidth: 1, borderTopColor: '#edf0ea' },

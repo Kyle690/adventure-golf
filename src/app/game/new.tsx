@@ -54,7 +54,7 @@ export default function SelectCourseScreen() {
             <Eyebrow style={{ marginBottom: 5, color: '#8bcd58' }}>NEW GAME</Eyebrow>
             <Text style={styles.headerTitle}>Choose your course</Text>
           </View>
-          <Logo compact style={{ width: 76 }} />
+          <Logo width={118} />
         </View>
 
         <View style={styles.content}>

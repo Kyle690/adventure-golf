@@ -1,12 +1,24 @@
 import { Image } from 'expo-image';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 
 import { Text } from '@/components/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Eyebrow } from '@/components/Eyebrow';
+import { EditPlayersSheet } from '@/components/game/EditPlayersSheet';
+import { HoleStrip, holeStates } from '@/components/game/HoleStrip';
 import { Icon } from '@/components/Icon';
 import { LeafDecoration } from '@/components/LeafDecoration';
 import { Logo } from '@/components/Logo';
@@ -30,6 +42,7 @@ export default function GameScreen() {
 
   const [activeHole, setActiveHole] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [playersOpen, setPlayersOpen] = useState(false);
   const exitGame = useExitGameFlow();
   const [width, setWidth] = useState(0);
   const scroller = useRef<ScrollView>(null);
@@ -78,10 +91,14 @@ export default function GameScreen() {
   const par = totalPar(holes);
   const holeCount = holes.length;
   const isLive = game.status === 'in_progress';
+  const states = holeStates(grid);
+  const holesDone = states.filter((state) => state === 'done').length;
 
+  // Any hole, back or forward (strip, previous/next); scores are saved as they're entered.
   const goToHole = (index: number) => {
-    setActiveHole(index);
-    scroller.current?.scrollTo({ x: index * interval, animated: true });
+    const target = Math.min(holeCount - 1, Math.max(0, index));
+    setActiveHole(target);
+    scroller.current?.scrollTo({ x: target * interval, animated: true });
   };
 
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -98,6 +115,8 @@ export default function GameScreen() {
 
   // "Finish round" opens the game complete screen to confirm the result; nothing is saved until then.
   const finish = () => router.push(`/game/${game.id}/complete`);
+  // iOS can't present a modal while another is still animating away (Round options -> Edit players).
+  const openPlayers = () => setTimeout(() => setPlayersOpen(true), Platform.OS === 'ios' ? 350 : 0);
 
   return (
     <View style={styles.screen}>
@@ -136,19 +155,29 @@ export default function GameScreen() {
 
         <View style={styles.main} onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}>
           <View style={styles.holeProgress}>
-            <View>
-              <Text style={styles.holeLabel}>HOLE</Text>
-              <Text style={styles.holeNumber}>
-                {String(activeHole + 1).padStart(2, '0')}{' '}
-                <Text style={styles.holeOf}>/ {String(holeCount).padStart(2, '0')}</Text>
-              </Text>
+            <View style={styles.progressRow}>
+              <View>
+                <Text style={styles.holeLabel}>HOLE</Text>
+                <Text style={styles.holeNumber}>
+                  {String(activeHole + 1).padStart(2, '0')}{' '}
+                  <Text style={styles.holeOf}>/ {String(holeCount).padStart(2, '0')}</Text>
+                </Text>
+              </View>
+              <View style={{ flex: 1, gap: 5 }}>
+                <View style={styles.progressLine}>
+                  <View style={[styles.progressFill, { width: `${(holesDone / holeCount) * 100}%` }]} />
+                </View>
+                <Text style={styles.progressText}>
+                  {holesDone} of {holeCount} holes scored
+                </Text>
+              </View>
+              <View style={styles.parBadge}>
+                <Text style={styles.parBadgeLabel}>PAR</Text>
+                <Text style={styles.parBadgeValue}>{holes[activeHole]?.par}</Text>
+              </View>
             </View>
-            <View style={styles.progressLine}>
-              <View style={[styles.progressFill, { width: `${((activeHole + 1) / holeCount) * 100}%` }]} />
-            </View>
-            <View style={styles.parBadge}>
-              <Text style={styles.parBadgeLabel}>PAR</Text>
-              <Text style={styles.parBadgeValue}>{holes[activeHole]?.par}</Text>
+            <View style={styles.strip}>
+              <HoleStrip numbers={holes.map((h) => h.number)} states={states} active={activeHole} onSelect={goToHole} />
             </View>
           </View>
 
@@ -170,11 +199,20 @@ export default function GameScreen() {
               return (
                 <View key={hole.id} style={[styles.card, { width: cardWidth }]}>
                   <View style={styles.cardHeading}>
-                    <View>
-                      <Text style={styles.cardKicker}>HOLE {hole.number}</Text>
-                      <Text style={styles.cardTitle}>Enter scores</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.cardTitle} accessibilityRole="header">
+                        Hole {hole.number}
+                      </Text>
+                      <Text style={styles.cardKicker}>
+                        ENTER SCORES
+                        {hole.length ? ` · ${hole.length} M` : ''}
+                        {hole.difficulty ? ` · ${hole.difficulty.toUpperCase()}` : ''}
+                      </Text>
                     </View>
-                    <Text style={styles.miniPar}>PAR {hole.par}</Text>
+                    <View style={styles.miniPar}>
+                      <Text style={styles.miniParLabel}>PAR</Text>
+                      <Text style={styles.miniParValue}>{hole.par}</Text>
+                    </View>
                   </View>
                   <View style={styles.scoreList}>
                     {players.map((player, playerIndex) => (
@@ -201,23 +239,30 @@ export default function GameScreen() {
                       </View>
                     ))}
                   </View>
-                  <Pressable
-                    style={styles.nextHole}
-                    onPress={() => (last ? finish() : goToHole(holeIndex + 1))}
-                  >
-                    <Text style={styles.nextHoleText}>{last ? 'Finish round' : 'Next hole'}</Text>
-                    <Icon name={last ? 'trophy' : 'arrow'} size={19} color="#fff" />
-                  </Pressable>
+                  <View style={styles.cardFooter}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Previous hole"
+                      aria-disabled={holeIndex === 0}
+                      disabled={holeIndex === 0}
+                      onPress={() => goToHole(holeIndex - 1)}
+                      style={[styles.prevHole, holeIndex === 0 && { opacity: 0.4 }]}
+                    >
+                      <Icon name="back" size={19} strokeWidth={2.2} />
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={[styles.nextHole, { flex: 1 }]}
+                      onPress={() => (last ? finish() : goToHole(holeIndex + 1))}
+                    >
+                      <Text style={styles.nextHoleText}>{last ? 'Finish round' : 'Next hole'}</Text>
+                      <Icon name={last ? 'trophy' : 'arrow'} size={19} color="#fff" />
+                    </Pressable>
+                  </View>
                 </View>
               );
             })}
           </ScrollView>
-
-          <View style={styles.dots}>
-            {holes.map((hole, index) => (
-              <View key={hole.id} style={[styles.dot, index === activeHole && styles.dotActive]} />
-            ))}
-          </View>
 
           <View style={styles.leaderboard}>
             <View style={styles.leaderHeading}>
@@ -225,7 +270,10 @@ export default function GameScreen() {
                 <Eyebrow style={{ color: '#85c556' }}>SCOREBOARD</Eyebrow>
                 <Text style={styles.leaderTitle}>Round totals</Text>
               </View>
-              <Icon name="trophy" color={colors.yellow} />
+              <Pressable accessibilityRole="button" accessibilityLabel="Edit players" onPress={() => setPlayersOpen(true)} style={styles.editPlayers}>
+                <Icon name="users" size={16} color={colors.yellow} />
+                <Text style={styles.editPlayersText}>Edit players</Text>
+              </Pressable>
             </View>
             {players.map((player, index) => (
               <View key={player.id} style={styles.leaderRow}>
@@ -250,6 +298,7 @@ export default function GameScreen() {
         courseName={game.courseName}
         onClose={() => setMenuOpen(false)}
         onSaveAndExit={exitGame}
+        onEditPlayers={openPlayers}
         onQuit={() => {
           setMenuOpen(false);
           deleteGame(game.id);
@@ -257,6 +306,7 @@ export default function GameScreen() {
           exitGame();
         }}
       />
+      <EditPlayersSheet game={game} visible={playersOpen} onClose={() => setPlayersOpen(false)} />
     </View>
   );
 }
@@ -300,9 +350,7 @@ const styles = StyleSheet.create({
 
   main: { zIndex: 3, marginTop: -27 },
   holeProgress: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 13,
+    gap: 12,
     marginHorizontal: SIDE_PADDING,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -310,10 +358,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     boxShadow: '0 8px 24px rgba(8, 61, 64, 0.12)',
   },
+  strip: { marginHorizontal: -8 },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 13 },
+  progressText: { color: '#8a9690', fontSize: 8, lineHeight: 10, fontFamily: fonts.bodyBold, letterSpacing: 0.5 },
   holeLabel: { color: '#8c9992', fontSize: 8, fontFamily: fonts.bodyBold, letterSpacing: 1.12 },
   holeNumber: { marginTop: 2, color: colors.ink, fontFamily: fonts.displayBold, fontSize: 20 },
   holeOf: { color: '#a2aaa6', fontSize: 10 },
-  progressLine: { flex: 1, height: 5, overflow: 'hidden', borderRadius: 5, backgroundColor: '#e3e7e1' },
+  progressLine: { height: 5, overflow: 'hidden', borderRadius: 5, backgroundColor: '#e3e7e1' },
   progressFill: { height: '100%', borderRadius: 5, backgroundColor: colors.red },
   parBadge: { alignItems: 'flex-start' },
   parBadgeLabel: { color: '#8a9690', fontSize: 8, fontFamily: fonts.body },
@@ -335,19 +386,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e7eae4',
   },
-  cardKicker: { color: colors.green, fontSize: 8, lineHeight: 24, fontFamily: fonts.bodyBold, letterSpacing: 1.2 },
-  cardTitle: { marginTop: 3, color: colors.ink, fontFamily: fonts.display, fontSize: 20 },
+  // The hole is the card's title: big and bold so it reads at a glance mid-round.
+  cardTitle: { color: colors.ink, fontFamily: fonts.displayBold, fontSize: 34, lineHeight: 38 },
+  cardKicker: { marginTop: 3, color: colors.green, fontSize: 9, lineHeight: 12, fontFamily: fonts.bodyBold, letterSpacing: 1.2 },
   miniPar: {
-    paddingVertical: 7,
-    paddingHorizontal: 9,
-    overflow: 'hidden',
-    color: colors.ink,
-    fontSize: 8,
-    fontFamily: fonts.bodyBold,
-    letterSpacing: 0.64,
-    borderRadius: 8,
+    alignItems: 'center',
+    minWidth: 52,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 12,
     backgroundColor: '#f7edbc',
   },
+  miniParLabel: { color: '#7c6a2e', fontSize: 8, lineHeight: 10, fontFamily: fonts.bodyBold, letterSpacing: 0.8 },
+  miniParValue: { color: colors.ink, fontSize: 22, lineHeight: 26, fontFamily: fonts.displayBold },
   scoreList: { paddingVertical: 4 },
   scoreRow: {
     flexDirection: 'row',
@@ -378,24 +429,39 @@ const styles = StyleSheet.create({
   stepButtonPlus: { backgroundColor: colors.green },
   stepText: { color: colors.ink, fontSize: 17, lineHeight: 19, fontFamily: fonts.body },
   stepValue: { minWidth: 24, textAlign: 'center', color: colors.ink, fontFamily: fonts.display, fontSize: 16 },
+  cardFooter: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  prevHole: {
+    width: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 11,
+    backgroundColor: '#eef2ec',
+  },
   nextHole: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 12,
     padding: 12,
     borderRadius: 11,
     backgroundColor: colors.red,
   },
   nextHoleText: { color: '#fff', fontSize: 11, fontFamily: fonts.bodyBold },
 
-  dots: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingTop: 4, paddingBottom: 18 },
-  dot: { width: 5, height: 5, borderRadius: 5, backgroundColor: '#aeb8b1' },
-  dotActive: { width: 16, backgroundColor: colors.green },
-
   leaderboard: { marginHorizontal: SIDE_PADDING, padding: 17, borderRadius: 19, backgroundColor: colors.deep },
   leaderHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  editPlayers: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 11,
+    borderWidth: 1,
+    borderColor: 'rgba(244, 197, 47, 0.45)',
+    borderRadius: 18,
+    backgroundColor: 'rgba(244, 197, 47, 0.1)',
+  },
+  editPlayersText: { color: colors.yellow, fontSize: 11, fontFamily: fonts.bodyBold },
   leaderTitle: { marginTop: 4, color: '#fff', fontFamily: fonts.display, fontSize: 17 },
   leaderRow: {
     flexDirection: 'row',

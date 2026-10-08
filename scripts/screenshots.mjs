@@ -103,6 +103,7 @@ if (which !== 'proto') {
   await p.getByText('Finish round').last().click();
   await p.getByText('CONFIRM RESULT', { exact: true }).waitFor();
   await p.getByText('Confirm result').last().click();
+  await p.getByText('Back to Home', { exact: true }).last().click();
   await p.getByText('Ready for an').waitFor();
   await p.reload({ waitUntil: 'networkidle' });
   await p.getByText('LAST GAME').waitFor({ timeout: 60000 });

@@ -13,28 +13,19 @@ import { before, describe, it } from 'node:test';
 
 import { drizzle } from 'drizzle-orm/sql-js';
 import { migrate } from 'drizzle-orm/sql-js/migrator';
-import { PreparedQuery, SQLJsSession } from 'drizzle-orm/sql-js/session';
-import initSqlJs, { type Database as SqlJsDatabase, type SqlJsStatic } from 'sql.js';
+import type { SqlJsStatic } from 'sql.js';
 
 import { calculateHandicap } from '../lib/handicap';
 import { gameResults, scoreGrid } from '../lib/game';
 import { playerStats } from '../lib/stats';
-import { type Database, setDatabase } from './database';
 import { SEED } from './demo-seed';
 import * as q from './queries';
 import * as schema from './schema';
+import { loadSqlJs, MIGRATIONS, open, rows, upgrade } from './test-db';
 
-// Test-only workaround: drizzle-orm 0.45's sql.js session drops the relational-query result mapper
-// (prepareQuery ignores its 5th argument), so `db.query.*` would return raw rows. Pass it through.
-(SQLJsSession.prototype as any).prepareQuery = function (this: any, ...args: any[]) {
-  const [query, fields, executeMethod, isResponseInArrayMode, customResultMapper] = args;
-  return new PreparedQuery(this.client, query, this.logger, fields, executeMethod, isResponseInArrayMode, customResultMapper);
-};
-
-const MIGRATIONS = path.resolve(__dirname, '../../drizzle');
 let SQL: SqlJsStatic;
 before(async () => {
-  SQL = await initSqlJs();
+  SQL = await loadSqlJs();
 });
 
 /** A copy of the migrations folder whose journal stops after `count` migrations. */
@@ -47,25 +38,6 @@ function migrationsUpTo(count: number) {
   writeFileSync(journalPath, JSON.stringify(journal));
   return dir;
 }
-
-function open(sqlite: SqlJsDatabase) {
-  const database = drizzle(sqlite, { schema });
-  setDatabase(database as unknown as Database);
-  return database;
-}
-
-/** Same order as the app: FKs off while migrating (table rebuilds), on afterwards. */
-function upgrade(sqlite: SqlJsDatabase, migrationsFolder = MIGRATIONS) {
-  sqlite.run('PRAGMA foreign_keys = OFF');
-  migrate(drizzle(sqlite, { schema }), { migrationsFolder });
-  sqlite.run('PRAGMA foreign_keys = ON');
-}
-
-const rows = (sqlite: SqlJsDatabase, query: string) => {
-  const result = sqlite.exec(query)[0];
-  if (!result) return [];
-  return result.values.map((v) => Object.fromEntries(result.columns.map((c, i) => [c, v[i]])));
-};
 
 /** Previous build: schema 0000-0001 and its demo seed (scores keyed by holes.id). */
 function previousBuildWithDemoData() {

@@ -13,11 +13,12 @@ type Props = {
   courseName: string;
   onClose: () => void;
   onSaveAndExit: () => void;
+  onEditPlayers: () => void;
   onQuit: () => void;
 };
 
 /** "Round options" bottom sheet with the quit confirmation step (prototype .round-menu). */
-export function RoundMenu({ visible, courseName, onClose, onSaveAndExit, onQuit }: Props) {
+export function RoundMenu({ visible, courseName, onClose, onSaveAndExit, onEditPlayers, onQuit }: Props) {
   const insets = useSafeAreaInsets();
   const [confirmQuit, setConfirmQuit] = useState(false);
   const close = () => {
@@ -41,6 +42,15 @@ export function RoundMenu({ visible, courseName, onClose, onSaveAndExit, onQuit 
                 <Text style={styles.title}>Round options</Text>
                 <Text style={styles.copy}>Your scores are automatically saved as you play.</Text>
               </View>
+              <MenuAction
+                icon="users"
+                title="Edit players"
+                subtitle="Add or remove players in this round"
+                onPress={() => {
+                  close();
+                  onEditPlayers();
+                }}
+              />
               <MenuAction
                 icon="home"
                 title="Save & exit"

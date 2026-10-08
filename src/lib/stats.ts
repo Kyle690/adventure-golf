@@ -1,5 +1,6 @@
 import type { GameDetail } from '@/db/queries';
 import { scoreGrid, totalPar } from '@/lib/game';
+import { calculateHandicap, countingDifferentials, type HandicapRound } from '@/lib/handicap';
 
 export type RecentRound = {
   gameId: number;
@@ -19,7 +20,12 @@ export type RecentRound = {
 };
 
 export type PlayerStats = {
+  /** Completed rounds with at least one score. */
   rounds: number;
+  /** Calculated handicap (see lib/handicap.ts), null without completed rounds. */
+  handicap: number | null;
+  /** How many rounds the handicap is based on (best 8 of last 20, or all). */
+  handicapRounds: number;
   wins: number;
   best: { total: number; courseName: string; vsPar: number } | null;
   avgPerHole: number | null;
@@ -36,6 +42,7 @@ export function playerStats(playerId: number, games: GameDetail[], recentLimit =
   let holesInOne = 0;
   let best: PlayerStats['best'] = null;
   const recent: RecentRound[] = [];
+  const handicapInput: HandicapRound[] = [];
 
   for (const game of games) {
     const index = game.gamePlayers.findIndex((gp) => gp.player.id === playerId);
@@ -58,6 +65,7 @@ export function playerStats(playerId: number, games: GameDetail[], recentLimit =
 
     if (game.status === 'completed' && total > 0) {
       rounds += 1;
+      handicapInput.push({ strokes: total, par: parPlayed, holes: scored.length, date: game.completedAt ?? game.startedAt });
       if (position === 1) wins += 1;
       if (!best || total < best.total) best = { total, courseName: game.course.name, vsPar };
     }
@@ -81,6 +89,8 @@ export function playerStats(playerId: number, games: GameDetail[], recentLimit =
 
   return {
     rounds,
+    handicap: calculateHandicap(handicapInput),
+    handicapRounds: countingDifferentials(handicapInput).length,
     wins,
     best,
     avgPerHole: holesScored ? strokes / holesScored : null,

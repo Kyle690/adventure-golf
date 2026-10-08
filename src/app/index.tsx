@@ -60,10 +60,10 @@ export default function HomeScreen() {
           <LeafDecoration />
           <View style={styles.heroTop}>
             <Logo />
-            {/* Prototype hard-codes "MS"; we use the owner's initials. Opens the Players screen. */}
+            {/* Prototype hard-codes "MS"; we use the owner's initials. Opens the Players tab (crew). */}
             <Pressable
               accessibilityLabel="Open profile"
-              onPress={() => router.dismissTo('/players')}
+              onPress={() => router.dismissTo('/crew')}
               style={styles.avatar}
             >
               <Text style={styles.avatarText}>{initials(owner?.name) || '?'}</Text>
@@ -117,7 +117,7 @@ export default function HomeScreen() {
                 <Icon name="chevron" size={18} />
               </View>
             </Pressable>
-            <Pressable style={[styles.quickCard, { backgroundColor: '#fff3c8' }]} onPress={() => router.dismissTo('/players')}>
+            <Pressable style={[styles.quickCard, { backgroundColor: '#fff3c8' }]} onPress={() => router.dismissTo('/crew')}>
               <View style={[styles.quickIcon, { backgroundColor: colors.yellow }]}>
                 <Icon name="users" />
               </View>

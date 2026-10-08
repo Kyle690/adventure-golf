@@ -31,12 +31,14 @@
     "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
+    "@types/node": "^20.19.43",
     "@types/react": "~19.2.2",
     "babel-plugin-inline-import": "^3.0.0",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.2",
     "patch-package": "^8.0.1",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -50,7 +52,8 @@
     "export:web": "expo export --platform web",
     "serve:web": "node scripts/serve-web.mjs",
     "postinstall": "patch-package",
-    "start:demo": "EXPO_PUBLIC_DEMO_SEED=1 expo start"
+    "start:demo": "EXPO_PUBLIC_DEMO_SEED=1 expo start",
+    "test": "tsx --test src/lib/*.test.ts"
   },
   "private": true
 }

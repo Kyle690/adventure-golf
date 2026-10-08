@@ -65,7 +65,7 @@ export function OwnerStep({
           <ColorSwatches value={color} onChange={setColor} />
         </View>
         <TextField
-          label="HANDICAP"
+          label="STARTING HANDICAP"
           optional
           value={handicap}
           onChangeText={(text) => setHandicap(text.replace(/[^0-9]/g, '').slice(0, 2))}

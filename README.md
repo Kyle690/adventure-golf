@@ -7,6 +7,7 @@ locally in SQLite through Drizzle ORM. Works fully offline.
 
 ```bash
 npm install            # also applies patches/ via patch-package
+npm test               # handicap unit tests
 npx expo start         # press i / a for a simulator, or scan with Expo Go / a dev build
 ```
 
@@ -30,15 +31,20 @@ src/app/              Expo Router screens
   onboarding/index.tsx  first-run carousel: owner -> venue -> course -> crew (reanimated pager)
   onboarding/complete.tsx  celebration screen (confetti, bouncing ball) -> Home
   setup.tsx           New game: venue, course, per-hole par editor
-  players.tsx         Who's playing: select (check) / add / remove players, start the round;
-                      tapping a row opens the player screen
-  player/[id].tsx     Player detail: stats, edit (name, colour, photo, handicap), recent
+  players.tsx         New game step 2, Who's playing: tap to select / add / remove players,
+                      start the round (prototype behaviour)
+  crew.tsx            Players tab: every player (owner first as "You") with games, calculated
+                      handicap and best score; sort by name/handicap/games/best; owner-only
+                      empty state; tapping a card opens the player screen
+  player/[id].tsx     Player detail: calculated handicap, stats, edit (name, colour, photo,
+                      starting handicap), recent
                       rounds, remove (non-owner, with confirmation)
   game/[id].tsx       Live scoring: hole carousel, steppers, scoreboard, round options
 src/components/       Icon (prototype SVG paths), Logo, LeafDecoration, GolfBall, BottomNav,
                       RoundMenu (bottom sheet + quit confirm), PlayerAvatar, WideCta, Eyebrow, Text,
                       ParEditor (shared by Setup and onboarding), ConfirmDialog
   onboarding/         StepPage, StepDots, Form fields, Confetti, BouncingBall, steps/*
+src/lib/handicap.ts   calculated handicap (pure functions) + handicap.test.ts (npm test)
 src/lib/stats.ts      per-player stats (rounds, wins, best, avg/hole, holes-in-one, recent)
 src/lib/images.ts     image picker -> copy into documentDirectory/images (data: URI on web)
 src/db/
@@ -62,6 +68,21 @@ Tables: `venues`, `courses`, `holes`, `players` (one `is_owner`, enforced by a p
 index; `avatar` = colour, optional `photo` URI), `games`, `game_players` (turn order), `scores` (unique per game/player/hole), `app_meta`.
 All FKs cascade on delete (removing a player deletes their scores, and any game left with no
 players). Change `src/db/schema.ts`, then `npm run db:generate`.
+
+## Handicap
+
+`src/lib/handicap.ts`, unit tested with `npm test` (node:test via tsx):
+
+1. For each completed round the player has scores in, using only the holes they scored:
+   differential per hole = (strokes - par of those holes) / holes scored.
+2. Take the 20 most recent such rounds; if there are 8 or more, keep the best (lowest) 8,
+   otherwise keep them all.
+3. Handicap = mean of the kept differentials x 18 (strokes over par per 18 holes), rounded to
+   1 decimal. No completed rounds -> "–". Can be negative (better than par).
+
+The manual `players.handicap` column is kept and labelled "Starting handicap": it is only shown
+(marked as starting) until the player has a completed round, then the calculated value is used
+everywhere. Lists always show the calculated value.
 
 ## Onboarding
 

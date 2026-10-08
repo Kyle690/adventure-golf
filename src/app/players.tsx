@@ -15,10 +15,9 @@ import { Logo } from '@/components/Logo';
 import { PlayerAvatar } from '@/components/PlayerAvatar';
 import { WideCta } from '@/components/WideCta';
 import { useDbQuery } from '@/db/hooks';
-import { addPlayer, listGamesForStats, listPlayers, listVenues, removePlayer, startGame } from '@/db/queries';
+import { addPlayer, listPlayers, listVenues, removePlayer, startGame } from '@/db/queries';
 import type { Player } from '@/db/schema';
 import { nextPlayerColor } from '@/lib/players';
-import { playerStats } from '@/lib/stats';
 import { useRoundDraft } from '@/state/round-draft';
 import { colors, fonts, MAX_PLAYERS } from '@/theme';
 
@@ -28,9 +27,8 @@ export default function PlayersScreen() {
   const [newName, setNewName] = useState('');
   const [pendingRemoval, setPendingRemoval] = useState<Player | null>(null);
   const { data } = useDbQuery(async () => {
-    const [players, venues, games] = await Promise.all([listPlayers(), listVenues(), listGamesForStats()]);
-    const stats = new Map(players.map((p) => [p.id, playerStats(p.id, games, 0)]));
-    return { players, venues, stats };
+    const [players, venues] = await Promise.all([listPlayers(), listVenues()]);
+    return { players, venues };
   });
 
   const players = data?.players ?? [];
@@ -66,14 +64,6 @@ export default function PlayersScreen() {
     setPendingRemoval(null);
     removePlayer(id);
     draft.setSelectedPlayerIds(selected.filter((x) => x !== id));
-  };
-
-  const roleLine = (player: Player) => {
-    const stats = data?.stats.get(player.id);
-    const parts = [player.isOwner ? 'Scorekeeper' : 'Player'];
-    if (stats?.rounds) parts.push(`${stats.rounds} ${stats.rounds === 1 ? 'round' : 'rounds'}`);
-    if (stats?.best) parts.push(`best ${stats.best.total}`);
-    return parts.join(' · ');
   };
 
   const start = () => {
@@ -117,18 +107,17 @@ export default function PlayersScreen() {
             {players.map((player, index) => {
               const isSelected = selected.includes(player.id);
               return (
-                // Tapping the row opens the player's detail/edit screen; the check toggles selection.
                 <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`${player.name}, open player details`}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: isSelected }}
                   key={player.id}
-                  onPress={() => router.push(`/player/${player.id}`)}
+                  onPress={() => toggle(player.id)}
                   style={[styles.row, isSelected && styles.rowSelected]}
                 >
                   <PlayerAvatar player={player} index={index} />
                   <View style={styles.name}>
                     <Text style={styles.nameText}>{player.name}</Text>
-                    <Text style={styles.role}>{roleLine(player)}</Text>
+                    <Text style={styles.role}>{player.isOwner ? 'Scorekeeper' : 'Player'}</Text>
                   </View>
                   {!player.isOwner ? (
                     <Pressable
@@ -140,16 +129,9 @@ export default function PlayersScreen() {
                       <Icon name="trash" size={17} color="#a6aea9" />
                     </Pressable>
                   ) : null}
-                  <Pressable
-                    accessibilityRole="checkbox"
-                    accessibilityLabel={`Select ${player.name} for this round`}
-                    accessibilityState={{ checked: isSelected }}
-                    hitSlop={10}
-                    onPress={() => toggle(player.id)}
-                    style={[styles.check, isSelected && styles.checkSelected]}
-                  >
+                  <View style={[styles.check, isSelected && styles.checkSelected]}>
                     {isSelected ? <Icon name="check" size={15} strokeWidth={2.8} color="#fff" /> : null}
-                  </Pressable>
+                  </View>
                 </Pressable>
               );
             })}
@@ -179,7 +161,8 @@ export default function PlayersScreen() {
           <WideCta label="Start the round" disabled={selected.length === 0 || !course} onPress={start} />
         </View>
       </ScrollView>
-      <BottomNav active="players" />
+      {/* Picking players is step 2 of New game (Venues tab); the Players tab is the crew list. */}
+      <BottomNav active="setup" />
       <ConfirmDialog
         visible={pendingRemoval !== null}
         title={`Remove ${pendingRemoval?.name ?? 'player'}?`}

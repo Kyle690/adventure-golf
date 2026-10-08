@@ -15,6 +15,7 @@ import { WideCta } from '@/components/WideCta';
 import { useDbQuery } from '@/db/hooks';
 import { getPlayer, listGamesForStats, listPlayers, removePlayer, updatePlayer } from '@/db/queries';
 import type { Player } from '@/db/schema';
+import { effectiveHandicap, formatHandicap, HANDICAP_BEST_OF, HANDICAP_WINDOW } from '@/lib/handicap';
 import { pickImageSafely } from '@/lib/images';
 import { playerColor } from '@/lib/players';
 import { formatVsPar, ordinal, playerStats, type PlayerStats, type RecentRound } from '@/lib/stats';
@@ -92,6 +93,8 @@ function PlayerDetail({
   };
 
   const preview = { name: trimmed || player.name, avatar: color, photo };
+  const shownHandicap = effectiveHandicap(stats.handicap, handicapValue);
+  const firstName = player.isOwner ? 'you' : player.name;
 
   return (
     <View style={styles.screen}>
@@ -130,7 +133,9 @@ function PlayerDetail({
               </Text>
             </View>
             <View style={styles.metaChip}>
-              <Text style={styles.metaText}>HCP {handicapValue ?? '–'}</Text>
+              <Text style={styles.metaText}>
+                {shownHandicap.source === 'starting' ? 'Starting HCP' : 'HCP'} {formatHandicap(shownHandicap.value)}
+              </Text>
             </View>
             {stats.holesInOne > 0 ? (
               <View style={styles.metaChip}>
@@ -143,9 +148,25 @@ function PlayerDetail({
         </View>
 
         <View style={styles.content}>
+          <View style={styles.handicapCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.statLabel, { color: '#b7e783' }]}>HANDICAP · CALCULATED</Text>
+              <Text style={styles.handicapCopy}>
+                {stats.handicap != null
+                  ? stats.handicapRounds >= HANDICAP_BEST_OF
+                    ? `Best ${HANDICAP_BEST_OF} of the last ${Math.min(stats.rounds, HANDICAP_WINDOW)} finished rounds`
+                    : `Average of ${stats.handicapRounds} finished round${stats.handicapRounds === 1 ? '' : 's'}`
+                  : handicapValue != null
+                    ? `No finished rounds yet. Using the starting handicap (${handicapValue}) until then.`
+                    : 'Finish a round to get a handicap.'}
+              </Text>
+              <Text style={styles.handicapFormula}>Strokes over par per hole × 18</Text>
+            </View>
+            <Text style={styles.handicapValue}>{formatHandicap(stats.handicap)}</Text>
+          </View>
           <View style={styles.statsGrid}>
             <StatCard label="ROUNDS" value={String(stats.rounds)} sub="Finished" />
-            <StatCard label="WINS" value={String(stats.wins)} sub={stats.rounds ? `${Math.round((stats.wins / stats.rounds) * 100)}% win rate` : 'No rounds yet'} accent />
+            <StatCard label="WINS" value={String(stats.wins)} sub={stats.rounds ? `${Math.round((stats.wins / stats.rounds) * 100)}% win rate` : 'No rounds yet'} />
             <StatCard
               label="BEST ROUND"
               value={stats.best ? String(stats.best.total) : '–'}
@@ -195,14 +216,21 @@ function PlayerDetail({
                 ) : null}
               </View>
             </View>
-            <TextField
-              label="HANDICAP"
-              optional
-              value={handicap}
-              onChangeText={(text) => setHandicap(text.replace(/[^0-9]/g, '').slice(0, 2))}
-              keyboardType="number-pad"
-              placeholder="e.g. 12"
-            />
+            <View>
+              <TextField
+                label="STARTING HANDICAP"
+                optional
+                value={handicap}
+                onChangeText={(text) => setHandicap(text.replace(/[^0-9]/g, '').slice(0, 2))}
+                keyboardType="number-pad"
+                placeholder="e.g. 12"
+              />
+              <Text style={styles.help}>
+                {stats.handicap != null
+                  ? `Not used any more: the handicap is now calculated from ${firstName === 'you' ? 'your' : `${firstName}'s`} finished rounds.`
+                  : `Only shown until ${firstName} ${firstName === 'you' ? 'finish' : 'finishes'} a round; after that it is calculated.`}
+              </Text>
+            </View>
           </FieldCard>
           <WideCta label={dirty ? 'Save changes' : 'No changes'} disabled={!valid || !dirty} onPress={save} />
 
@@ -327,6 +355,20 @@ const styles = StyleSheet.create({
   },
   metaText: { color: '#fff', fontSize: 9, fontFamily: fonts.bodyBold },
   content: { paddingTop: 18, paddingHorizontal: 20 },
+  handicapCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 10,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: colors.green,
+    boxShadow: '0 10px 22px rgba(24, 128, 68, 0.22)',
+  },
+  handicapCopy: { marginTop: 4, color: '#fff', fontSize: 11, fontFamily: fonts.bodySemi },
+  handicapFormula: { marginTop: 2, color: 'rgba(255,255,255,0.65)', fontSize: 9, fontFamily: fonts.body },
+  handicapValue: { color: '#fff', fontFamily: fonts.displayBold, fontSize: 38, lineHeight: 44 },
+  help: { marginTop: 6, color: '#8c9992', fontSize: 9, lineHeight: 13, fontFamily: fonts.body },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   stat: {
     flexBasis: '45%',

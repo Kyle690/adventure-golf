@@ -9,10 +9,11 @@ import { colors, fonts } from '@/theme';
 
 export type NavTab = 'home' | 'setup' | 'players';
 
-const ITEMS: { label: string; icon: IconName; tab: NavTab; href: '/' | '/setup' | '/players' }[] = [
+const ITEMS: { label: string; icon: IconName; tab: NavTab; href: '/' | '/setup' | '/crew' }[] = [
   { label: 'Home', icon: 'home', tab: 'home', href: '/' },
   { label: 'Venues', icon: 'pin', tab: 'setup', href: '/setup' },
-  { label: 'Players', icon: 'users', tab: 'players', href: '/players' },
+  // Players tab = the crew list with stats; the round's player picker (/players) is part of New game.
+  { label: 'Players', icon: 'users', tab: 'players', href: '/crew' },
   // The prototype's History tab routes to Home (no history screen yet).
   { label: 'History', icon: 'history', tab: 'home', href: '/' },
 ];

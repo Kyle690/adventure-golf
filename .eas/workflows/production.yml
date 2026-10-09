@@ -1,0 +1,22 @@
+name: Production to TestFlight
+
+# Run manually: npx eas-cli workflow:run .eas/workflows/production.yml
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build_ios:
+    name: iOS production build
+    type: build
+    params:
+      platform: ios
+      profile: production
+
+  submit_ios:
+    name: Submit to TestFlight
+    needs: [build_ios]
+    type: submit
+    params:
+      platform: ios
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: production

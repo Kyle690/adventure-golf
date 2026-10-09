@@ -8,6 +8,7 @@
     "drizzle-orm": "^0.45.3",
     "expo": "~57.0.27",
     "expo-constants": "~57.0.21",
+    "expo-dev-client": "~57.0.19",
     "expo-file-system": "~57.0.7",
     "expo-font": "~57.0.4",
     "expo-image": "~57.0.5",
@@ -47,8 +48,8 @@
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
     "db:generate": "drizzle-kit generate",
@@ -57,7 +58,13 @@
     "serve:web": "node scripts/serve-web.mjs",
     "postinstall": "patch-package",
     "start:demo": "EXPO_PUBLIC_DEMO_SEED=1 expo start",
-    "test": "tsx --test src/lib/*.test.ts src/db/*.test.ts"
+    "test": "tsx --test src/lib/*.test.ts src/db/*.test.ts",
+    "build:dev": "eas build --profile development --platform ios",
+    "build:dev:sim": "eas build --profile development-simulator --platform ios",
+    "build:prod": "eas build --profile production --platform ios --auto-submit",
+    "workflow:dev": "eas workflow:run .eas/workflows/development.yml",
+    "workflow:prod": "eas workflow:run .eas/workflows/production.yml",
+    "start:dev": "expo start --dev-client"
   },
   "private": true
 }

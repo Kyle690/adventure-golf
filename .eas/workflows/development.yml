@@ -1,0 +1,13 @@
+name: Development build
+
+# Run manually: npx eas-cli workflow:run .eas/workflows/development.yml
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build_ios_dev:
+    name: iOS development build
+    type: build
+    params:
+      platform: ios
+      profile: development

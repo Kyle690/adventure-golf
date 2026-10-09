@@ -21,6 +21,7 @@
     "expo-sqlite": "~57.0.4",
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.4",
+    "expo-updates": "~57.0.25",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
@@ -64,7 +65,9 @@
     "build:prod": "eas build --profile production --platform ios --auto-submit",
     "workflow:dev": "eas workflow:run .eas/workflows/development.yml",
     "workflow:prod": "eas workflow:run .eas/workflows/production.yml",
-    "start:dev": "expo start --dev-client"
+    "start:dev": "expo start --dev-client",
+    "update:dev": "eas update --channel development",
+    "update:prod": "eas update --channel production"
   },
   "private": true
 }

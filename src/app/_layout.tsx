@@ -15,6 +15,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { DatabaseProvider } from '@/db/provider';
+import { AdFreeProvider } from '@/state/ad-free';
 import { RoundDraftProvider } from '@/state/round-draft';
 import { colors } from '@/theme';
 
@@ -47,6 +48,7 @@ export default function RootLayout() {
       <View style={styles.shell}>
         <View style={styles.app}>
           <DatabaseProvider>
+            <AdFreeProvider>
             <RoundDraftProvider>
               <Stack
                 screenOptions={{
@@ -61,8 +63,12 @@ export default function RootLayout() {
                 <Stack.Screen name="(onboarding)" options={{ gestureEnabled: false }} />
                 {/* New game -> players -> scoring -> result, presented over the tabs (no tab bar). */}
                 <Stack.Screen name="game" options={{ animation: 'slide_from_bottom' }} />
+                {/* Settings (privacy & ad choices, remove ads) and the Remove ads sheet. */}
+                <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="remove-ads" options={{ animation: 'slide_from_bottom' }} />
               </Stack>
             </RoundDraftProvider>
+            </AdFreeProvider>
           </DatabaseProvider>
         </View>
       </View>

@@ -15,6 +15,7 @@ import { PlayerAvatar } from '@/components/PlayerAvatar';
 import { WideCta } from '@/components/WideCta';
 import { useDbQuery } from '@/db/hooks';
 import { getCourse, listPlayers, startGame } from '@/db/queries';
+import { useAdFree } from '@/state/ad-free';
 import { useRoundDraft } from '@/state/round-draft';
 import { colors, fonts, MAX_PLAYERS } from '@/theme';
 
@@ -25,6 +26,7 @@ import { colors, fonts, MAX_PLAYERS } from '@/theme';
 export default function PickPlayersScreen() {
   const insets = useSafeAreaInsets();
   const draft = useRoundDraft();
+  const { runWithInterstitial } = useAdFree();
   const { courseId } = useLocalSearchParams<{ courseId?: string }>();
   const { data } = useDbQuery(async () => {
     const [players, course] = await Promise.all([listPlayers(), courseId ? getCourse(Number(courseId)) : undefined]);
@@ -55,8 +57,11 @@ export default function PickPlayersScreen() {
     if (!course || selected.length === 0) return;
     // Turn order follows the crew list order, like the prototype's players.filter(selected).
     const ordered = players.filter((p) => selected.includes(p.id)).map((p) => p.id);
-    const game = startGame(course.id, ordered);
-    router.replace(`/game/${game.id}`);
+    // Interstitial (if loaded and not capped) before the round is created; otherwise straight in.
+    runWithInterstitial(() => {
+      const game = startGame(course.id, ordered);
+      router.replace(`/game/${game.id}`);
+    });
   };
 
   return (

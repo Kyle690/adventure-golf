@@ -363,7 +363,7 @@ export function deleteGame(id: number) {
 // App metadata + onboarding
 // ---------------------------------------------------------------------------
 
-type MetaKey = 'onboarding' | 'onboarding_venue_id' | 'onboarding_course_id';
+type MetaKey = 'onboarding' | 'onboarding_venue_id' | 'onboarding_course_id' | 'no_ads_entitlement';
 
 function getMeta(key: MetaKey) {
   return db.select().from(appMeta).where(eq(appMeta.key, key)).get()?.value ?? null;
@@ -372,6 +372,12 @@ function getMeta(key: MetaKey) {
 function setMeta(key: MetaKey, value: string) {
   db.insert(appMeta).values({ key, value }).onConflictDoUpdate({ target: appMeta.key, set: { value } }).run();
 }
+
+/** app_meta as a key/value store for the "Remove ads" entitlement cache (src/lib/entitlement-cache). */
+export const entitlementStore = {
+  get: (key: string) => getMeta(key as MetaKey),
+  set: (key: string, value: string) => setMeta(key as MetaKey, value),
+};
 
 /**
  * Onboarding runs on a fresh install (no owner yet) and keeps running until it is finished, so an

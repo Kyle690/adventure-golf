@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AdBanner } from '@/components/AdBanner';
 import { NAV_CLEARANCE } from '@/components/BottomNav';
 import { Eyebrow } from '@/components/Eyebrow';
 import { GolfBall } from '@/components/GolfBall';
@@ -60,10 +61,10 @@ export default function HomeScreen() {
           <LeafDecoration />
           <View style={styles.heroTop}>
             <Logo />
-            {/* Prototype hard-codes "MS"; we use the owner's initials. Opens the Players tab (crew). */}
+            {/* Prototype hard-codes "MS"; we use the owner's initials. Opens Settings (crew, ads, privacy). */}
             <Pressable
               accessibilityLabel="Open profile"
-              onPress={() => router.navigate('/players')}
+              onPress={() => router.push('/settings')}
               style={styles.avatar}
             >
               <Text style={styles.avatarText}>{initials(owner?.name) || '?'}</Text>
@@ -133,6 +134,7 @@ export default function HomeScreen() {
 
           {data.lastGame ? <LastGameCard game={data.lastGame} /> : <NoGamesCard />}
         </View>
+        <AdBanner />
       </ScrollView>
     </View>
   );

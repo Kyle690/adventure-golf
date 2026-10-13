@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AdBanner } from '@/components/AdBanner';
 import { NAV_CLEARANCE } from '@/components/BottomNav';
 import { Eyebrow } from '@/components/Eyebrow';
 import { Icon } from '@/components/Icon';
@@ -100,6 +101,7 @@ export default function VenuesScreen() {
             </View>
           ) : null}
         </View>
+        <AdBanner />
       </ScrollView>
     </View>
   );

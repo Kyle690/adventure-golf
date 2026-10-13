@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AdBanner } from '@/components/AdBanner';
 import { NAV_CLEARANCE } from '@/components/BottomNav';
 import { AddPlayerForm } from '@/components/AddPlayerForm';
 import { Eyebrow } from '@/components/Eyebrow';
@@ -128,6 +129,7 @@ export default function CrewScreen() {
             </>
           ) : null}
         </View>
+        <AdBanner />
       </ScrollView>
     </View>
   );

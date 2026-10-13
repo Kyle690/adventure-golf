@@ -13,6 +13,7 @@ import { Text } from '@/components/Text';
 import { WideCta } from '@/components/WideCta';
 import { createVenue } from '@/db/queries';
 import { pickImageSafely } from '@/lib/images';
+import { useAdFree } from '@/state/ad-free';
 import { colors, fonts } from '@/theme';
 
 function goBack() {
@@ -23,6 +24,7 @@ function goBack() {
 /** Add a venue (name required, address + photo optional), then open it to add its courses. */
 export default function NewVenueScreen() {
   const insets = useSafeAreaInsets();
+  const { runWithInterstitial } = useAdFree();
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [image, setImage] = useState<string | null>(null);
@@ -30,8 +32,12 @@ export default function NewVenueScreen() {
 
   const save = () => {
     if (!valid) return;
-    const venue = createVenue({ name: name.trim(), address: address.trim() || null, image });
-    router.replace(`/venues/${venue.id}`);
+    const values = { name: name.trim(), address: address.trim() || null, image };
+    // Interstitial (if loaded and not capped) before the venue is created; otherwise straight in.
+    runWithInterstitial(() => {
+      const venue = createVenue(values);
+      router.replace(`/venues/${venue.id}`);
+    });
   };
 
   return (

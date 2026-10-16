@@ -63,7 +63,7 @@
         "react-native-google-mobile-ads",
         {
           "androidAppId": "ca-app-pub-3940256099942544~3347511713",
-          "iosAppId": "ca-app-pub-3940256099942544~1458002511",
+          "iosAppId": "ca-app-pub-3551894819770067~5246633331",
           "delayAppMeasurementInit": true,
           "userTrackingUsageDescription": "Adventure Golf uses this to show ads that are more relevant to you. You can still play if you say no."
         }

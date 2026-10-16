@@ -24,7 +24,11 @@
     "production": {
       "distribution": "store",
       "channel": "production",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_ADMOB_IOS_BANNER_ID": "ca-app-pub-3551894819770067/4069283035",
+        "EXPO_PUBLIC_ADMOB_IOS_INTERSTITIAL_ID": "ca-app-pub-3551894819770067/7467717974"
+      }
     }
   },
   "submit": {
